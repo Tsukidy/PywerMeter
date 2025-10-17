@@ -1,0 +1,7 @@
+# Required Python Packages one line
+pyside6 pyserial openpyxl
+
+# Dependencies & Info
+pyside6  # For GUI development
+pyserial # For serial communication
+openpyxl # For Excel file handling
