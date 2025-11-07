@@ -1,6 +1,9 @@
 # Python script for handling serial communication wtih a device.
 import serial
 
+def testFunction():
+    return "This is a test function from serialComm.py"
+
 def recieve_data():
     try:
         while True:

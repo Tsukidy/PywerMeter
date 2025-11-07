@@ -4,4 +4,8 @@ pyside6 pyserial openpyxl
 # Dependencies & Info
 pyside6  # For GUI development
 pyserial # For serial communication
+numpy # For calculations/averaging (requirement for pandas installed alongside it)
+pandas # Logging data to Excel
+
+# Debating
 openpyxl # For Excel file handling
