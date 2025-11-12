@@ -14,10 +14,13 @@ def recieve_data():
         while True:
             # Open serial connection
             with serial.Serial('COM9', 9600, timeout=1) as ser:
+                # Send a ? to the device to request data
+                ser.write(b'?')
                 # Read a line from the serial port
                 line = ser.readline().decode('utf-8').rstrip()
                 if line:
                     print(f"Received: {line}")
+                    sleep(1)  # Pause for a second before next read
     except KeyboardInterrupt:
         Print("Serial communication terminated by user.")
     finally:
