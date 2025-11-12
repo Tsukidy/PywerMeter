@@ -7,13 +7,14 @@ def testFunction():
 def returnSerialPorts():
     import serial.tools.list_ports
     ports = serial.tools.list_ports.comports()
-    return [port.device for port in ports]
+    for port in ports:
+        print(f"{port.device}: {port.description}")
 
-def recieve_data(port, baudrate, timeout, stopbits, bytesize):
+def recieve_data(port=COM9, baudrate=9600 , timeout=1, stopbits=1, bytesize=8):
     try:
         while True:
             # Open serial connection
-            with serial.Serial('COM9', 9600, timeout=1) as ser:
+            with serial.Serial(port, baudrate, timeout) as ser:
                 # Send a ? to the device to request data
                 ser.write(b'?')
                 # Read a line from the serial port
