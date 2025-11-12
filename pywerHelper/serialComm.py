@@ -21,4 +21,6 @@ def query_device(
     with serial.Serial(port=port, baudrate=baudrate, bytesize=bytesize, stopbits=stopbits, timeout=timeout) as ser:
         ser.write(command)
         response = ser.read(64)  # Adjust size as needed
-        print("Response (hex):", response.hex())
+        hex_str = response.hex()
+        spaced_hex = ' '.join([hex_str[i:i+2] for i in range(0, len(hex_str), 2)])
+        print("Response (hex):", spaced_hex)
