@@ -9,9 +9,9 @@ if __name__ == "__main__":
     dataLog = ""
     for _ in range(10):
         print("Attempting to read serial data.")
-        seialData = dev.query()
+        serialData = dev.query()
         dataLog += serialData
-        print(f"Received serial data: {seialData}")
+        print(f"Received serial data: {serialData}")
     dev.close()
     with open ("serialDataLog.log", "w") as file:
         file.write(dataLog)
