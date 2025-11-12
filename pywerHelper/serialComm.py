@@ -9,7 +9,7 @@ def returnSerialPorts():
     ports = serial.tools.list_ports.comports()
     return [port.device for port in ports]
 
-def recieve_data():
+def recieve_data(port, baudrate, timeout, stopbits, bytesize):
     try:
         while True:
             # Open serial connection
@@ -17,9 +17,11 @@ def recieve_data():
                 # Send a ? to the device to request data
                 ser.write(b'?')
                 # Read a line from the serial port
-                line = ser.readline().decode('utf-8').rstrip()
+                line = ser.readline()
+                text = line.decode('utf-8').rstrip()
                 if line:
-                    print(f"Received: {line}")
+                    print(f"Received: {text}")
+                    print(f"Debug output: {line}")
                     sleep(1)  # Pause for a second before next read
     except KeyboardInterrupt:
         Print("Serial communication terminated by user.")
