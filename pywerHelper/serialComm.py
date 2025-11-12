@@ -10,6 +10,18 @@ def returnSerialPorts():
     for port in ports:
         print(f"{port.device}: {port.description}")
 
+def query_device(
+    port="COM9",
+    baudrate=9600,
+    bytesize=serial.EIGHTBITS,
+    stopbits=serial.STOPBITS_ONE,
+    timeout=1
+):
+    with serial.Serial(port=port, baudrate=baudrate, bytesize=bytesize, stopbits=stopbits, timeout=timeout) as ser:
+        ser.write(b'?')
+        response = ser.read(64)  # Adjust size as needed
+        print("Response (hex):", response.hex())
+
 def recieve_data(port="COM9", baudrate=9600, timeout=1, stopbits=1, bytesize=8):
     command = '?'
     encodedCommand = command.encode('ascii')
