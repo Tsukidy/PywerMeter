@@ -10,7 +10,7 @@ def returnSerialPorts():
     for port in ports:
         print(f"{port.device}: {port.description}")
 
-def recieve_data(port=COM9, baudrate=9600 , timeout=1, stopbits=1, bytesize=8):
+def recieve_data(port="COM9", baudrate=9600, timeout=1, stopbits=1, bytesize=8):
     try:
         while True:
             # Open serial connection
