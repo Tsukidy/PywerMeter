@@ -4,6 +4,11 @@ import serial
 def testFunction():
     return "This is a test function from serialComm.py"
 
+def returnSerialPorts():
+    import serial.tools.list_ports
+    ports = serial.tools.list_ports.comports()
+    return [port.device for port in ports]
+
 def recieve_data():
     try:
         while True:
@@ -17,3 +22,8 @@ def recieve_data():
         Print("Serial communication terminated by user.")
     finally:
         exit(0)
+
+if __name__ == "__main__":
+    print ("Returning available serial ports:")
+    returned_ports = returnSerialPorts()
+    print(returned_ports)
