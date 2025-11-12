@@ -11,12 +11,14 @@ def returnSerialPorts():
         print(f"{port.device}: {port.description}")
 
 def recieve_data(port="COM9", baudrate=9600, timeout=1, stopbits=1, bytesize=8):
+    command = '?'
+    encodedCommand = command.encode('ascii')
     try:
         while True:
             # Open serial connection
             with serial.Serial(port, baudrate, timeout) as ser:
                 # Send a ? to the device to request data
-                ser.write(b'?')
+                ser.write(encodedCommand)
                 # Read a line from the serial port
                 line = ser.readline()
                 text = line.decode('utf-8').rstrip()
