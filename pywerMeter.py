@@ -6,4 +6,5 @@ print(excelHelper.testFunction())
 
 if __name__ == "__main__":
     print("Attempting to read serial data.")
-    print(serialComm.query_device())
+    seialData = serialComm.query_device()
+    print(f"Received serial data: {seialData}")
