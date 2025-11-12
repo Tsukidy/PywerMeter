@@ -6,4 +6,4 @@ print(excelHelper.testFunction())
 
 if __name__ == "__main__":
     print("Attempting to read serial data.")
-    serialComm.query_device()
+    print(serialComm.query_device())
