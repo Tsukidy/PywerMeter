@@ -24,3 +24,32 @@ def query_device(
         hex_str = response.hex()
         spaced_hex = ' '.join([hex_str[i:i+2] for i in range(0, len(hex_str), 2)])
         return spaced_hex
+
+class SerialDevice:
+    def __init__(
+        self,
+        port="COM9",
+        baudrate=9600,
+        bytesize=serial.EIGHTBITS,
+        stopbits=serial.STOPBITS_ONE,
+        timeout=1
+    ):
+        self.ser = serial.Serial(
+            port=port,
+            baudrate=baudrate,
+            bytesize=bytesize,
+            stopbits=stopbits,
+            timeout=timeout
+        )
+
+    def query(self):
+        self.ser.write(b'?')
+        response = self.ser.read(64)
+        hex_str = response.hex()
+        spaced_hex = ' '.join([hex_str[i:i+2] for i in range(0, len(hex_str), 2)])
+        print("Response (hex):", spaced_hex)
+        return spaced_hex
+
+    def close(self):
+        self.ser.close()
+
