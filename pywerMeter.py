@@ -10,5 +10,5 @@ if __name__ == "__main__":
         print("Attempting to read serial data.")
         seialData = serialComm.SerialDevice(port="COM9").query()
         print(f"Received serial data: {seialData}")
-        serialComm.SerialDevice(port="COM9").close()
         i += 1
+    serialComm.SerialDevice(port="COM9").close()

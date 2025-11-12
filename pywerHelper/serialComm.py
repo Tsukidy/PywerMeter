@@ -47,7 +47,6 @@ class SerialDevice:
         response = self.ser.read(64)
         hex_str = response.hex()
         spaced_hex = ' '.join([hex_str[i:i+2] for i in range(0, len(hex_str), 2)])
-        print("Response (hex):", spaced_hex)
         return spaced_hex
 
     def close(self):
