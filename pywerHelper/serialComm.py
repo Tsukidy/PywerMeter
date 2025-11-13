@@ -32,7 +32,7 @@ class SerialDevice:
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
         stopbits=serial.STOPBITS_ONE,
-        timeout=0.3
+        timeout=1
     ):
         self.ser = serial.Serial(
             port=port,
