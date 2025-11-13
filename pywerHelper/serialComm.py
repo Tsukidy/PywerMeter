@@ -42,8 +42,11 @@ class SerialDevice:
             timeout=timeout
         )
 
-    def query(self):
-        self.ser.write(b'?')
+    def query(
+        self,
+        command=b'?'
+    ):
+        self.ser.write(command)
         response = self.ser.read(64)
         hex_str = response.hex()
         spaced_hex = ' '.join([hex_str[i:i+2] for i in range(0, len(hex_str), 2)])
