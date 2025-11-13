@@ -48,9 +48,10 @@ class SerialDevice:
     ):
         self.ser.write(command)
         response = self.ser.read(64)
+        ascii_str = response.decode(errors='ignore')
         hex_str = response.hex()
         spaced_hex = ' '.join([hex_str[i:i+2] for i in range(0, len(hex_str), 2)])
-        return response, spaced_hex
+        return response, spaced_hex, ascii_str
 
     def close(self):
         self.ser.close()
