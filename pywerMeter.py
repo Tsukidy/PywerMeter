@@ -9,7 +9,7 @@ if __name__ == "__main__":
     while time.time() < end_time:
         print("Attempting to read serial data.")
         unformattedData, retHexData, retAsciiData  = dev.query(command=b'?MPOW')
-        dataLog += retAsciiData
+        dataLog += retAsciiData + "\n"
         print(f"Received serial data: {retAsciiData}")
     dev.close()
     with open ("serialDataLog.log", "w") as file:
