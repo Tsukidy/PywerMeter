@@ -13,9 +13,9 @@ if __name__ == "__main__":
     #for _ in range(10):
     while time.time() < end_time:
         print("Attempting to read serial data.")
-        returnedData, formattedData = dev.query(command=b'?MAXPOW')
-        dataLog += returnedData + "\n"
-        print(f"Received serial data: {returnedData}")
+        unformattedData, retHexData, retAsciiData  = dev.query(command=b'?MAXPOW')
+        dataLog += retAsciiData + "\n"
+        print(f"Received serial data: {retAsciiData}")
     dev.close()
     with open ("serialDataLog.log", "w") as file:
         file.write(dataLog)
