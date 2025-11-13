@@ -10,7 +10,6 @@ if __name__ == "__main__":
     dataLog = ""
     minutes = 1
     end_time = time.time() + minutes * 60
-    #for _ in range(10):
     while time.time() < end_time:
         print("Attempting to read serial data.")
         unformattedData, retHexData, retAsciiData  = dev.query(command=b'?MPOW')
