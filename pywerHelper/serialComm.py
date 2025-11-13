@@ -51,7 +51,7 @@ class SerialDevice:
     def close(self):
         if self.ser and self.ser.is_open:
             try:
-                self.set.close()
+                self.ser.close()
             except serial.SerialException as e:
                 print(f"Error closing serial port: {e}")
 
