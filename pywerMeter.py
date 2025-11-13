@@ -1,10 +1,6 @@
 from pywerHelper import serialComm, excelHelper
 import time
 
-print("Testing pywerHelper package")
-print(serialComm.testFunction())
-print(excelHelper.testFunction())
-
 if __name__ == "__main__":
     dev = serialComm.SerialDevice(port="COM9", baudrate=38400, timeout=0.5)
     dataLog = ""
