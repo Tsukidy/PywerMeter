@@ -108,28 +108,30 @@ def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=N
                 else:
                     status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
                 
-                # Clear previous lines (1 status line + up to 15 sample lines)
-                print("\033[K", end="")  # Clear current line
-                for _ in range(15):
-                    print("\033[1B\033[K", end="")  # Move down and clear
-                print(f"\033[16A\r{status}", end="")  # Move back up and print status
+                # Use Windows-compatible method to update display
+                # Move cursor to beginning and clear with spaces
+                lines_to_clear = 16  # 1 status + 15 samples
                 
-                # Print recent samples below status line
-                for i, sample in enumerate(recent_samples):
-                    print(f"\n  [{i+1:2d}] {sample}", end="")
+                # Move cursor up if not first iteration
+                if sample_count > 1:
+                    for _ in range(lines_to_clear):
+                        print(f"\033[F", end="")  # Move cursor up one line
                 
-                # Fill remaining lines if less than 15 samples
-                for _ in range(15 - len(recent_samples)):
-                    print("\n", end="")
+                # Print status line
+                print(f"\r{status:<120}")  # Left-align and pad to 120 chars to clear previous text
                 
-                print("", flush=True)
+                # Print recent samples
+                for i in range(15):
+                    if i < len(recent_samples):
+                        print(f"  [{i+1:2d}] {recent_samples[i]:<100}")  # Pad to clear previous text
+                    else:
+                        print(f"{' ':<120}")  # Empty line padded with spaces
+                
+                # Flush output
+                print(end="", flush=True)
         
-        # Clear the sample lines and print newline after loop completes
-        print("\033[K", end="")
-        for _ in range(15):
-            print("\033[1B\033[K", end="")
-        print("\033[16A")
-        print()  # Print newline after loop completes
+        # Move past the display area
+        print("\n")
         print(f"Data saved to {filename}")
         logger.info(f"Data saved to {filename}")
         
