@@ -1,5 +1,3 @@
-<> yaml
-
 # Serial Connection Settings Configuartion
 connection_settings:
   port: "COM7" 
