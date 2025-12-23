@@ -20,10 +20,10 @@ if not os.path.exists(fullLogPath):
 logging.basicConfig(filename=fullLogPath, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def initSerialDevice(port="COM9", baudrate=38400, timeout=0.5):
+def initSerialDevice():
     try:
         logger.info("Initializing serial device.")
-        dev = serialComm.SerialDevice(port=port, baudrate=baudrate, timeout=timeout)
+        dev = serialComm.SerialDevice()
         return dev
     except Exception as e:
         print(f"Failed to initialize serial device: {e}")
