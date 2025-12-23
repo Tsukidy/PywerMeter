@@ -1,11 +1,13 @@
 from pywerHelper import serialComm, excelHelper
-import time, logging
+import time, logging, os
 
 
 # Setup Logging
 logName = "./logs/pywerMeter.log"
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+if not os.path.exists("./logs"):
+    os.makedirs("./logs")
 logging.basicConfig(filename=logName, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 

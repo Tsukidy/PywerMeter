@@ -1,11 +1,12 @@
 # Python script for handling serial communication wtih a device.
-import serial
-import logging
+import serial, logging, os
 
 # Start Logging
 logName = "../logs/serial_communication.log"
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+if not os.path.exists("./logs"):
+    os.makedirs("./logs")
 logging.basicConfig(filename=logName, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Return available serial ports
