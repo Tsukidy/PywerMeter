@@ -164,6 +164,38 @@ if __name__ == "__main__":
     # Get default Excel filename
     default_excel_file = test_settings.get('default_excel_file', 'power_measurements.xlsx')
     
+    # Check if Excel file already exists
+    if os.path.exists(default_excel_file):
+        print(f"\n⚠️  Warning: Excel file '{default_excel_file}' already exists!")
+        logger.warning(f"Excel file already exists: {default_excel_file}")
+        
+        while True:
+            response = input("Do you want to overwrite it? (y/n): ").strip().lower()
+            if response == 'y':
+                print(f"File will be overwritten.\n")
+                logger.info("User chose to overwrite existing Excel file")
+                # Delete the existing file
+                try:
+                    os.remove(default_excel_file)
+                    logger.info(f"Deleted existing file: {default_excel_file}")
+                except Exception as e:
+                    print(f"Error deleting file: {e}")
+                    logger.error(f"Error deleting existing file: {e}")
+                    exit(1)
+                break
+            elif response == 'n':
+                # Generate new filename with timestamp
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                base_name = os.path.splitext(default_excel_file)[0]
+                ext = os.path.splitext(default_excel_file)[1]
+                default_excel_file = f"{base_name}_{timestamp}{ext}"
+                print(f"Using new filename: {default_excel_file}\n")
+                logger.info(f"User chose not to overwrite. Using new filename: {default_excel_file}")
+                break
+            else:
+                print("Invalid input. Please enter 'y' or 'n'.")
+    
     # Find all test configurations by looking for test_excel_header_x keys
     test_numbers = []
     for key in test_settings.keys():
