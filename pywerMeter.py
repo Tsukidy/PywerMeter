@@ -55,13 +55,16 @@ if __name__ == "__main__":
         #except Exception as e:
         #    print(f"Error during serial communication: {e}")
         #    logger.error(f"Error during serial communication: {e}")
-
+    
+    # Close serial device and write log to file
     try:
         logger.info("Closing serial device.")
         dev.close()
     except Exception as e:
         print(f"Error closing serial device: {e}")
         logger.error(f"Error closing serial device: {e}")
+
+    # Write data log to file
     with open ("serialData.txt", "w") as file:
         try:
             file.write(dataLog)
