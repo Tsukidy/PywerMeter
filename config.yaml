@@ -21,7 +21,7 @@ test_settings:
   after_test_pause_3: false
   # Sleep
   test_filename_4: "4_sleep.txt"
-  test_start_time_4: "35:45"   # Start at 35 minutes
+  test_start_time_4: "35:45"   # Start at 35 minutes 45 seconds
   test_duration_4: "5:00"      # Run for 5 minutes
   after_test_pause_4: false
 
