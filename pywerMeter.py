@@ -66,7 +66,7 @@ def readSerialData(dev, command=b'?MPOW'):
         logger.error(f"Error reading serial data: {e}")
         return None, None, None
 
-def serialFunction(minutes=0.25, filename="serialData.txt"):
+def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=None):
     # Initialize serial device & variables
     dev = initSerialDevice()
     if dev is None:
@@ -74,15 +74,34 @@ def serialFunction(minutes=0.25, filename="serialData.txt"):
         logger.error("Failed to initialize serial device. Exiting.")
         exit(1)
     dataLog = ""
-    end_time = time.time() + minutes * 60
-    print(f"Attempting to read serial data for {minutes} minutes. Output: {filename}")
+    test_start_time = time.time()
+    end_time = test_start_time + minutes * 60
+    sample_count = 0
+    print(f"Reading serial data for {minutes:.2f} minutes. Output: {filename}")
 
     # Read serial data for specified duration
     while time.time() < end_time:
         unformattedData, retHexData, retAsciiData  = readSerialData(dev, command=b'?MPOW')
         if retAsciiData:
             dataLog += retAsciiData + "\n"
-            print(f"Received serial data: {retAsciiData}")
+            sample_count += 1
+        
+        # Calculate time values
+        current_time = time.time()
+        test_elapsed = (current_time - test_start_time) / 60
+        test_remaining = minutes - test_elapsed
+        
+        # Calculate global elapsed time if global timer was provided
+        if global_timer_start:
+            global_elapsed = (current_time - global_timer_start) / 60
+            status = f"\rTest Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
+        else:
+            status = f"\rTest Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
+        
+        print(status, end="", flush=True)
+    
+    # Print newline after loop completes
+    print()
     
     # Close serial device and write log to file
     try:
@@ -156,7 +175,7 @@ if __name__ == "__main__":
             print(f"\n\n=== Starting Test {test_num} at {elapsed_time:.2f} minutes ===")
             logger.info(f"Starting Test {test_num}: {filename} for {duration} minutes (started at {elapsed_time:.2f} min)")
             
-            serialFunction(minutes=duration, filename=filename)
+            serialFunction(minutes=duration, filename=filename, global_timer_start=global_start_time)
             
             # Update elapsed time after test
             elapsed_time = (time.time() - global_start_time) / 60
