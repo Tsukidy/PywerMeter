@@ -2,14 +2,16 @@
 import serial, logging, os
 
 # Start Logging
-logName = "../logs/serial_communication.log"
+logPath = "../logs"
+logName = "serial_communication.log"
+fullLogPath = os.path.join(logPath, logName)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-if not os.path.exists("../logs"):
-    os.makedirs("../logs")
-if not os.path.exists("../logs/serial_communication.log"):
-    open("../logs/serial_communication.log", 'a').close()
-logging.basicConfig(filename=logName, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+if not os.path.exists(logPath):
+    os.makedirs(logPath)
+if not os.path.exists(fullLogPath):
+    open(fullLogPath, 'a').close()
+logging.basicConfig(filename=fullLogPath, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Return available serial ports
 def returnSerialPorts():
