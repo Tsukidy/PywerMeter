@@ -48,6 +48,10 @@ if __name__ == "__main__":
 
     # Initialize serial device & variables
     dev = initSerialDevice()
+    if dev is None:
+        print("Failed to initialize serial device. Exiting.")
+        logger.error("Failed to initialize serial device. Exiting.")
+        exit(1)
     dataLog = ""
     minutes = 0.25
     end_time = time.time() + minutes * 60

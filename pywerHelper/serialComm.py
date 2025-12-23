@@ -2,7 +2,7 @@
 import serial, logging, os, yaml
 
 # Start Logging
-logPath = "../logs"
+logPath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 logName = "serial_communication.log"
 fullLogPath = os.path.join(logPath, logName)
 logger = logging.getLogger(__name__)
@@ -31,13 +31,14 @@ class SerialDevice:
         timeout=1
     ):
         # Load configuration from YAML if available
-        if not os.path.exists("../config.yaml"):
+        config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
+        if not os.path.exists(config_path):
             print("Config file not found. Using default serial settings.")
             logger.warning("Config file not found. Using default serial settings.")
         else:
             print("Config file found. Loading serial settings from config.")
             logger.info("Config file found. Loading serial settings from config.")
-            with open("../config.yaml", 'r') as file:
+            with open(config_path, 'r') as file:
                 config = yaml.safe_load(file)
                 port = config['connection_settings'].get('port', port)
                 baudrate = config['connection_settings'].get('baudrate', baudrate)
