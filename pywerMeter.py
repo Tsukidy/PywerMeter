@@ -66,7 +66,7 @@ def readSerialData(dev, command=b'?MPOW'):
         logger.error(f"Error reading serial data: {e}")
         return None, None, None
 
-def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=None):
+def serialFunction(minutes=0.25, global_timer_start=None, test_header=None):
     # Initialize serial device & variables
     dev = initSerialDevice()
     if dev is None:
@@ -77,67 +77,65 @@ def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=N
     test_start_time = time.time()
     end_time = test_start_time + minutes * 60
     sample_count = 0
-    recent_samples = []  # Keep track of last 15 samples
-    print(f"Reading serial data for {minutes:.2f} minutes. Output: {filename}")
+    samples = []  # Store all samples for this test
+    recent_samples = []  # Keep track of last 15 samples for display
+    print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
 
-    # Open file for writing and write data as it comes in
+    # Read serial data for specified duration
     try:
-        with open(filename, "w") as file:
-            # Read serial data for specified duration
-            while time.time() < end_time:
-                unformattedData, retHexData, retAsciiData  = readSerialData(dev, command=b'?MPOW')
-                if retAsciiData:
-                    # Write data immediately to file
-                    file.write(retAsciiData + "\n")
-                    file.flush()  # Ensure data is written to disk immediately
-                    sample_count += 1
-                    # Add to recent samples and keep only last 15
-                    recent_samples.append(retAsciiData)
-                    if len(recent_samples) > 15:
-                        recent_samples.pop(0)
-                
-                # Calculate time values
-                current_time = time.time()
-                test_elapsed = (current_time - test_start_time) / 60
-                test_remaining = minutes - test_elapsed
-                
-                # Calculate global elapsed time if global timer was provided
-                if global_timer_start:
-                    global_elapsed = (current_time - global_timer_start) / 60
-                    status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
+        while time.time() < end_time:
+            unformattedData, retHexData, retAsciiData  = readSerialData(dev, command=b'?MPOW')
+            if retAsciiData:
+                # Store sample
+                samples.append(retAsciiData)
+                sample_count += 1
+                # Add to recent samples and keep only last 15
+                recent_samples.append(retAsciiData)
+                if len(recent_samples) > 15:
+                    recent_samples.pop(0)
+            
+            # Calculate time values
+            current_time = time.time()
+            test_elapsed = (current_time - test_start_time) / 60
+            test_remaining = minutes - test_elapsed
+            
+            # Calculate global elapsed time if global timer was provided
+            if global_timer_start:
+                global_elapsed = (current_time - global_timer_start) / 60
+                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
+            else:
+                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
+            
+            # Use Windows-compatible method to update display
+            # Move cursor to beginning and clear with spaces
+            lines_to_clear = 16  # 1 status + 15 samples
+            
+            # Move cursor up if not first iteration
+            if sample_count > 1:
+                for _ in range(lines_to_clear):
+                    print(f"\033[F", end="")  # Move cursor up one line
+            
+            # Print status line
+            print(f"\r{status:<120}")  # Left-align and pad to 120 chars to clear previous text
+            
+            # Print recent samples
+            for i in range(15):
+                if i < len(recent_samples):
+                    print(f"  [{i+1:2d}] {recent_samples[i]:<100}")  # Pad to clear previous text
                 else:
-                    status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
-                
-                # Use Windows-compatible method to update display
-                # Move cursor to beginning and clear with spaces
-                lines_to_clear = 16  # 1 status + 15 samples
-                
-                # Move cursor up if not first iteration
-                if sample_count > 1:
-                    for _ in range(lines_to_clear):
-                        print(f"\033[F", end="")  # Move cursor up one line
-                
-                # Print status line
-                print(f"\r{status:<120}")  # Left-align and pad to 120 chars to clear previous text
-                
-                # Print recent samples
-                for i in range(15):
-                    if i < len(recent_samples):
-                        print(f"  [{i+1:2d}] {recent_samples[i]:<100}")  # Pad to clear previous text
-                    else:
-                        print(f"{' ':<120}")  # Empty line padded with spaces
-                
-                # Flush output
-                print(end="", flush=True)
+                    print(f"{' ':<120}")  # Empty line padded with spaces
+            
+            # Flush output
+            print(end="", flush=True)
         
         # Move past the display area
         print("\n")
-        print(f"Data saved to {filename}")
-        logger.info(f"Data saved to {filename}")
+        print(f"Test complete: {sample_count} samples collected")
+        logger.info(f"Test complete: {sample_count} samples collected")
         
     except Exception as e:
-        print(f"\nError writing to log file: {e}")
-        logger.error(f"Error writing to log file: {e}")
+        print(f"\nError during data collection: {e}")
+        logger.error(f"Error during data collection: {e}")
     
     # Close serial device
     try:
@@ -149,6 +147,8 @@ def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=N
 
     print("Serial data logging complete.")
     logger.info("Serial data logging complete.")
+    
+    return samples  # Return collected samples
 
 
 # Main execution block
@@ -161,10 +161,13 @@ if __name__ == "__main__":
     # Get test settings from config
     test_settings = config.get('test_settings', {})
     
-    # Find all test configurations by looking for test_filename_x keys
+    # Get default Excel filename
+    default_excel_file = test_settings.get('default_excel_file', 'power_measurements.xlsx')
+    
+    # Find all test configurations by looking for test_excel_header_x keys
     test_numbers = []
     for key in test_settings.keys():
-        if key.startswith('test_filename_'):
+        if key.startswith('test_excel_header_'):
             test_num = key.split('_')[-1]
             test_numbers.append(test_num)
     
@@ -175,12 +178,14 @@ if __name__ == "__main__":
     elapsed_time = 0  # in minutes
     
     print("\n========== Starting Test Sequence ==========")
-    print("Global timer started. Tests will run based on scheduled start times.\n")
+    print("Global timer started. Tests will run based on scheduled start times.")
+    print(f"Data will be written to: {default_excel_file}\n")
     logger.info("Global timer started for test sequence")
+    logger.info(f"Excel output file: {default_excel_file}")
     
     # Run each test
     for test_num in test_numbers:
-        filename = test_settings.get(f'test_filename_{test_num}')
+        test_header = test_settings.get(f'test_excel_header_{test_num}')
         start_time_raw = test_settings.get(f'test_start_time_{test_num}')
         duration_raw = test_settings.get(f'test_duration_{test_num}')
         pause_after = test_settings.get(f'after_test_pause_{test_num}')
@@ -189,7 +194,7 @@ if __name__ == "__main__":
         start_time = parse_time_value(start_time_raw) if start_time_raw is not None else None
         duration = parse_time_value(duration_raw) if duration_raw is not None else None
         
-        if filename and start_time is not None and duration:
+        if test_header and start_time is not None and duration:
             # Wait until the global timer reaches the start time
             while elapsed_time < start_time:
                 elapsed_time = (time.time() - global_start_time) / 60
@@ -198,10 +203,20 @@ if __name__ == "__main__":
                     print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for Test {test_num} (starts at {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
                     time.sleep(1)
             
-            print(f"\n\n=== Starting Test {test_num} at {elapsed_time:.2f} minutes ===")
-            logger.info(f"Starting Test {test_num}: {filename} for {duration} minutes (started at {elapsed_time:.2f} min)")
+            print(f"\n\n=== Starting Test {test_num}: {test_header} at {elapsed_time:.2f} minutes ===")
+            logger.info(f"Starting Test {test_num}: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
             
-            serialFunction(minutes=duration, filename=filename, global_timer_start=global_start_time)
+            # Run test and collect samples
+            samples = serialFunction(minutes=duration, global_timer_start=global_start_time, test_header=test_header)
+            
+            # Write samples to Excel immediately after test completes
+            if samples:
+                print(f"Writing test data to Excel...")
+                logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
+                excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file)
+            else:
+                print(f"No samples collected for {test_header}")
+                logger.warning(f"No samples collected for test: {test_header}")
             
             # Update elapsed time after test
             elapsed_time = (time.time() - global_start_time) / 60

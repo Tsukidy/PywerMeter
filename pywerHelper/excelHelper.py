@@ -143,5 +143,65 @@ def import_multiple_files(data_files, workbook_filename="power_data.xlsx"):
     return success_count
 
 
+def write_test_row_to_excel(test_header, samples, workbook_filename="power_measurements.xlsx", sheet_name="Power Data"):
+    """
+    Write a test's data as a new row in an Excel file.
+    
+    Args:
+        test_header (str): Name of the test (goes in first column)
+        samples (list): List of sample values for this test
+        workbook_filename (str): Path to the Excel workbook
+        sheet_name (str): Name for the sheet
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Create row data with test header as first column
+        row_data = [test_header] + samples
+        
+        # Check if workbook exists
+        if os.path.exists(workbook_filename):
+            # Read existing data
+            try:
+                existing_df = pd.read_excel(workbook_filename, sheet_name=sheet_name)
+                # Ensure we have enough columns
+                existing_cols = len(existing_df.columns)
+                needed_cols = len(row_data)
+                
+                if needed_cols > existing_cols:
+                    # Add more columns
+                    new_cols = ['Test Name'] + [f'Sample {i+1}' for i in range(needed_cols - 1)]
+                    existing_df = existing_df.reindex(columns=new_cols, fill_value='')
+                
+                # Create new row as DataFrame
+                new_row_df = pd.DataFrame([row_data], columns=existing_df.columns[:len(row_data)])
+                
+                # Append new row
+                updated_df = pd.concat([existing_df, new_row_df], ignore_index=True)
+                
+            except Exception:
+                # Sheet doesn't exist or can't be read, create new
+                columns = ['Test Name'] + [f'Sample {i+1}' for i in range(len(samples))]
+                updated_df = pd.DataFrame([row_data], columns=columns)
+        else:
+            # Create new workbook
+            columns = ['Test Name'] + [f'Sample {i+1}' for i in range(len(samples))]
+            updated_df = pd.DataFrame([row_data], columns=columns)
+        
+        # Write to Excel
+        with pd.ExcelWriter(workbook_filename, engine='openpyxl', mode='w') as writer:
+            updated_df.to_excel(writer, sheet_name=sheet_name, index=False)
+        
+        logger.info(f"Wrote test '{test_header}' with {len(samples)} samples to {workbook_filename}")
+        print(f"Wrote test '{test_header}' to Excel: {len(samples)} samples")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error writing test row to Excel: {e}")
+        print(f"Error writing to Excel: {e}")
+        return False
+
+
 # Module-level exports
-__all__ = ['create_workbook', 'import_data_to_workbook', 'import_multiple_files', 'testFunction']
+__all__ = ['create_workbook', 'import_data_to_workbook', 'import_multiple_files', 'write_test_row_to_excel', 'testFunction']
