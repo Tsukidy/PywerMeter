@@ -77,6 +77,7 @@ def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=N
     test_start_time = time.time()
     end_time = test_start_time + minutes * 60
     sample_count = 0
+    recent_samples = []  # Keep track of last 15 samples
     print(f"Reading serial data for {minutes:.2f} minutes. Output: {filename}")
 
     # Open file for writing and write data as it comes in
@@ -90,6 +91,10 @@ def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=N
                     file.write(retAsciiData + "\n")
                     file.flush()  # Ensure data is written to disk immediately
                     sample_count += 1
+                    # Add to recent samples and keep only last 15
+                    recent_samples.append(retAsciiData)
+                    if len(recent_samples) > 15:
+                        recent_samples.pop(0)
                 
                 # Calculate time values
                 current_time = time.time()
@@ -99,12 +104,31 @@ def serialFunction(minutes=0.25, filename="serialData.txt", global_timer_start=N
                 # Calculate global elapsed time if global timer was provided
                 if global_timer_start:
                     global_elapsed = (current_time - global_timer_start) / 60
-                    status = f"\rTest Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
+                    status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
                 else:
-                    status = f"\rTest Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
+                    status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
                 
-                print(status, end="", flush=True)
+                # Clear previous lines (1 status line + up to 15 sample lines)
+                print("\033[K", end="")  # Clear current line
+                for _ in range(15):
+                    print("\033[1B\033[K", end="")  # Move down and clear
+                print(f"\033[16A\r{status}", end="")  # Move back up and print status
+                
+                # Print recent samples below status line
+                for i, sample in enumerate(recent_samples):
+                    print(f"\n  [{i+1:2d}] {sample}", end="")
+                
+                # Fill remaining lines if less than 15 samples
+                for _ in range(15 - len(recent_samples)):
+                    print("\n", end="")
+                
+                print("", flush=True)
         
+        # Clear the sample lines and print newline after loop completes
+        print("\033[K", end="")
+        for _ in range(15):
+            print("\033[1B\033[K", end="")
+        print("\033[16A")
         print()  # Print newline after loop completes
         print(f"Data saved to {filename}")
         logger.info(f"Data saved to {filename}")
