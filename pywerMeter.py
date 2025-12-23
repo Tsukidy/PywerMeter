@@ -6,6 +6,28 @@ configFilePath = "./config.yaml"
 with open(configFilePath, 'r') as file:
     config = yaml.safe_load(file)
 
+def parse_time_value(time_value):
+    """
+    Parse time value from config. Accepts:
+    - Numeric (int/float): treated as minutes (e.g., 1.5 = 1.5 minutes)
+    - String "M:SS": parsed as minutes:seconds (e.g., "1:30" = 1.5 minutes)
+    Returns time in minutes as a float.
+    """
+    if isinstance(time_value, (int, float)):
+        return float(time_value)
+    elif isinstance(time_value, str) and ':' in time_value:
+        parts = time_value.split(':')
+        if len(parts) == 2:
+            try:
+                minutes = int(parts[0])
+                seconds = int(parts[1])
+                return minutes + (seconds / 60.0)
+            except ValueError:
+                print(f"Warning: Invalid time format '{time_value}'. Using 0.")
+                return 0.0
+    print(f"Warning: Unrecognized time format '{time_value}'. Using 0.")
+    return 0.0
+
 def loggingSetup():
     # Setup Logging
     logPath = config['log_settings']['log_dir']
@@ -103,31 +125,59 @@ if __name__ == "__main__":
     
     test_numbers.sort()
     
+    # Initialize global timer
+    global_start_time = time.time()
+    elapsed_time = 0  # in minutes
+    
+    print("\n========== Starting Test Sequence ==========")
+    print("Global timer started. Tests will run based on scheduled start times.\n")
+    logger.info("Global timer started for test sequence")
+    
     # Run each test
     for test_num in test_numbers:
         filename = test_settings.get(f'test_filename_{test_num}')
-        duration = test_settings.get(f'test_duration_{test_num}')
-        pre_delay = test_settings.get(f'test_pre_delay_{test_num}', 0)
+        start_time_raw = test_settings.get(f'test_start_time_{test_num}')
+        duration_raw = test_settings.get(f'test_duration_{test_num}')
         pause_after = test_settings.get(f'after_test_pause_{test_num}')
         
-        if filename and duration:
-            print(f"\n=== Starting Test {test_num} ===")
-            logger.info(f"Starting Test {test_num}: {filename} for {duration} minutes")
+        # Parse time values
+        start_time = parse_time_value(start_time_raw) if start_time_raw is not None else None
+        duration = parse_time_value(duration_raw) if duration_raw is not None else None
+        
+        if filename and start_time is not None and duration:
+            # Wait until the global timer reaches the start time
+            while elapsed_time < start_time:
+                elapsed_time = (time.time() - global_start_time) / 60
+                remaining = start_time - elapsed_time
+                if remaining > 0:
+                    print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for Test {test_num} (starts at {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
+                    time.sleep(1)
             
-            # Apply pre-test delay if configured
-            if pre_delay > 0:
-                print(f"Pre-test delay: waiting {pre_delay} seconds...")
-                logger.info(f"Pre-test delay: waiting {pre_delay} seconds")
-                time.sleep(pre_delay)
+            print(f"\n\n=== Starting Test {test_num} at {elapsed_time:.2f} minutes ===")
+            logger.info(f"Starting Test {test_num}: {filename} for {duration} minutes (started at {elapsed_time:.2f} min)")
             
             serialFunction(minutes=duration, filename=filename)
+            
+            # Update elapsed time after test
+            elapsed_time = (time.time() - global_start_time) / 60
+            
+            # Pause the timer if requested
             if pause_after:
+                print(f"\nGlobal timer paused at {elapsed_time:.2f} minutes.")
+                logger.info(f"Global timer paused at {elapsed_time:.2f} minutes for user input")
                 input("Press Enter to continue to the next test...")
+                # Adjust the global start time to account for the pause
+                global_start_time = time.time() - (elapsed_time * 60)
+                print(f"Global timer resumed.\n")
+                logger.info("Global timer resumed")
+            
             print(f"=== Test {test_num} Complete ===\n")
         else:
             print(f"Warning: Missing configuration for test {test_num}")
             logger.warning(f"Missing configuration for test {test_num}")
     
-    print("All tests complete.")
-    logger.info("All tests complete.")
+    final_elapsed = (time.time() - global_start_time) / 60
+    print(f"\n========== All Tests Complete ==========")
+    print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
+    logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
 

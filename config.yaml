@@ -1,25 +1,28 @@
 # Test settings for pywerMeter
-# Test timers are in minutes!!!! Delay is in seconds Decimals are allowed.
+# Time formats supported:
+#   - Numeric: treated as minutes (e.g., 1.5 = 1.5 minutes)
+#   - String "M:SS": minutes:seconds (e.g., "1:30" = 1 minute 30 seconds)
 # Test filenames should end with .csv
 test_settings:
   # Off
   test_filename_1: "1_off.txt"
-  test_duration_1: 1
+  test_start_time_1: 0        # Start immediately
+  test_duration_1: "0:15"     # Run for 15 seconds
   after_test_pause_1: true
   # Short Idle
   test_filename_2: "2_short_idle.txt"
-  test_duration_2: 2 # in minutes
-  test_pre_delay_2: 3 # in seconds
+  test_start_time_2: "5:00"   # Start at 5 minutes
+  test_duration_2: "0:15"     # Run for 15 seconds
   after_test_pause_2: false
   # Long Idle
   test_filename_3: "3_long_idle.txt"
-  test_duration_3: 3 # in minutes
-  test_pre_delay_3: 0 # in seconds
+  test_start_time_3: "18:00"   # Start at 18 minutes
+  test_duration_3: "0:15"     # Run for 15 seconds
   after_test_pause_3: false
   # Sleep
   test_filename_4: "4_sleep.txt"
-  test_duration_4: 4 # in minutes
-  test_pre_delay_4: 0 # in seconds
+  test_start_time_4: "30:00"   # Start at 30 minutes
+  test_duration_4: "0:15"      # Run for 15 seconds
   after_test_pause_4: false
 
 # Serial Command Settings
