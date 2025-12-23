@@ -7,6 +7,7 @@ logName = "serial_communication.log"
 fullLogPath = os.path.join(logPath, logName)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+# Create log directory if it doesn't exist & log file. Python will not do this itself.
 if not os.path.exists(logPath):
     os.makedirs(logPath)
 if not os.path.exists(fullLogPath):
