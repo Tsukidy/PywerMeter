@@ -146,6 +146,7 @@ if __name__ == "__main__":
         
         if filename and start_time is not None and duration:
             # Wait until the global timer reaches the start time
+            elapsed_time = (time.time() - global_start_time) / 60
             while elapsed_time < start_time:
                 elapsed_time = (time.time() - global_start_time) / 60
                 remaining = start_time - elapsed_time
@@ -153,13 +154,16 @@ if __name__ == "__main__":
                     print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for Test {test_num} (starts at {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
                     time.sleep(1)
             
+            # Update elapsed time one more time before starting test
+            elapsed_time = (time.time() - global_start_time) / 60
             print(f"\n\n=== Starting Test {test_num} at {elapsed_time:.2f} minutes ===")
             logger.info(f"Starting Test {test_num}: {filename} for {duration} minutes (started at {elapsed_time:.2f} min)")
             
             serialFunction(minutes=duration, filename=filename)
             
-            # Update elapsed time after test
+            # Update elapsed time after test to include test duration
             elapsed_time = (time.time() - global_start_time) / 60
+            print(f"Test completed. Global timer now at: {elapsed_time:.2f} minutes")
             
             # Pause the timer if requested
             if pause_after:
