@@ -74,8 +74,8 @@ class SerialDevice:
         command=b'?MPOW'
     ):
         if not self.ser or not self.ser.is_open:
-            raise serial.SerialException("Serial port is not open.")
             logging.error("Serial port is not open.")
+            raise serial.SerialException("Serial port is not open.")
             return none, None, None
         try:
             logger.info(f"Sending command: {command}")
