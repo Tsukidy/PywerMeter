@@ -1,0 +1,18 @@
+<> yaml
+
+# Serial Connection Settings Configuartion
+connection_settings:
+  port: "COM7" 
+  baudrate: 9600
+  bytesize: EIGHTBITS
+  stopbits: STOPBITS_ONE
+  timeout: 1
+
+# Serial Command Settings
+command_setttings:
+  command: b'?MPOW'
+
+# Logging Settings
+log_settings:
+  log_dir: "./logs"
+  log_level: "DEBUG"

@@ -1,5 +1,5 @@
 # Python script for handling serial communication wtih a device.
-import serial, logging, os
+import serial, logging, os, yaml
 
 # Start Logging
 logPath = "../logs"
@@ -30,6 +30,22 @@ class SerialDevice:
         stopbits=serial.STOPBITS_ONE,
         timeout=1
     ):
+        # Load configuration from YAML if available
+        if not os.path.exists("../config.yaml"):
+            print("Config file not found. Using default serial settings.")
+            logger.warning("Config file not found. Using default serial settings.")
+        else:
+            print("Config file found. Loading serial settings from config.")
+            logger.info("Config file found. Loading serial settings from config.")
+            with open("../config.yaml", 'r') as file:
+                config = yaml.safe_load(file)
+                port = config['connection_settings'].get('port', port)
+                baudrate = config['connection_settings'].get('baudrate', baudrate)
+                bytesize = config['connection_settings'].get('bytesize', bytesize)
+                stopbits = config['connection_settings'].get('stopbits', stopbits)
+                timeout = config['connection_settings'].get('timeout', timeout)
+        
+        # Attempt serial port connection
         try:
             logger.info("Opening serial port.")
             self.ser = serial.Serial(
@@ -50,6 +66,7 @@ class SerialDevice:
             self.ser = None
             raise
 
+    # Query the device with a command and return response
     def query(
         self,
         command=b'?MPOW'
@@ -75,6 +92,7 @@ class SerialDevice:
             logger.error(f"Error during serial communication: {e}")
             return None, None, None
 
+    # Close the serial port
     def close(self):
         if self.ser and self.ser.is_open:
             try:
@@ -84,5 +102,6 @@ class SerialDevice:
                 print(f"Error closing serial port: {e}")
                 logger.error(f"Error closing serial port: {e}")
 
+# Lists available serial ports when run as main
 if __name__ == "__main__":
     returnSerialPorts()

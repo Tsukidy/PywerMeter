@@ -1,14 +1,23 @@
 from pywerHelper import serialComm, excelHelper
-import time, logging, os
+import time, logging, os, yaml
+
+# Check config file for settings
+configFilePath = "./config.yaml"
+with open(configFilePath, 'r') as file:
+    config = yaml.safe_load(file)
 
 
 # Setup Logging
-logName = "./logs/pywerMeter.log"
+logPath = config['log_settings']['log_dir']
+logName = "pywerMeter.log"
+fullLogPath = os.path.join(logPath, logName)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-if not os.path.exists("./logs"):
-    os.makedirs("./logs")
-logging.basicConfig(filename=logName, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+if not os.path.exists(logPath):
+    os.makedirs(logPath)
+if not os.path.exists(fullLogPath):
+    open(fullLogPath, 'a').close()
+logging.basicConfig(filename=fullLogPath, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def initSerialDevice(port="COM9", baudrate=38400, timeout=0.5):
