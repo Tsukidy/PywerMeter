@@ -2,8 +2,8 @@
 connection_settings:
   port: "COM7" 
   baudrate: 9600
-  bytesize: serial.EIGHTBITS
-  stopbits: serial.STOPBITS_ONE
+  bytesize: 8
+  stopbits: 1
   timeout: 1
 
 # Serial Command Settings
