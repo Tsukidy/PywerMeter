@@ -439,14 +439,15 @@ class PowerCalc:
             
             from openpyxl.utils import get_column_letter
             
-            # Find columns by header name (case-insensitive)
+            # Find columns by header name (case-insensitive, spaces removed)
             columns_needed = ['off', 'shortidle', 'longidle', 'sleep']
             column_positions = {}
             
             for col_idx, col_name in enumerate(self.df.columns, start=1):
-                col_name_lower = str(col_name).lower()
-                if col_name_lower in columns_needed:
-                    column_positions[col_name_lower] = col_idx
+                # Normalize column name: lowercase and remove spaces
+                col_name_normalized = str(col_name).lower().replace(' ', '')
+                if col_name_normalized in columns_needed:
+                    column_positions[col_name_normalized] = col_idx
             
             # Check if all required columns exist
             missing_columns = [col for col in columns_needed if col not in column_positions]
