@@ -157,6 +157,9 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
         bool: True if successful, False otherwise
     """
     try:
+        # Convert samples to numeric values (handles text strings from serial data)
+        numeric_samples = pd.to_numeric(samples, errors='coerce')
+        
         # Check if workbook exists
         if os.path.exists(workbook_filename):
             # Read existing data
@@ -171,16 +174,16 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                                              columns=existing_df.columns)
                     existing_df = pd.concat([existing_df, empty_rows], ignore_index=True)
                 
-                # Add new column with test data
-                existing_df[test_header] = pd.Series(samples)
+                # Add new column with test data (as numeric values)
+                existing_df[test_header] = numeric_samples
                 updated_df = existing_df
                 
             except Exception:
                 # Sheet doesn't exist or can't be read, create new DataFrame
-                updated_df = pd.DataFrame({test_header: samples})
+                updated_df = pd.DataFrame({test_header: numeric_samples})
         else:
             # Create new workbook with first column
-            updated_df = pd.DataFrame({test_header: samples})
+            updated_df = pd.DataFrame({test_header: numeric_samples})
         
         # Write to Excel without index and without default header names
         with pd.ExcelWriter(workbook_filename, engine='openpyxl', mode='w') as writer:
