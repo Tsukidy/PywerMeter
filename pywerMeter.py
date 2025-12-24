@@ -185,16 +185,12 @@ def rerun_specific_test():
     test_numbers = []
     
     for key in test_settings.keys():
-        if key.startswith('test_name_'):
+        if key.startswith('test_excel_header_'):
             test_num = key.split('_')[-1]
-            test_name = test_settings.get(f'test_name_{test_num}')
             test_header = test_settings.get(f'test_excel_header_{test_num}')
-            if test_name and test_header:
+            if test_header:
                 test_numbers.append(test_num)
-                test_mapping[test_num] = {
-                    'name': test_name,
-                    'header': test_header
-                }
+                test_mapping[test_num] = {'header': test_header}
     
     if not test_mapping:
         print("No tests found in configuration.")
@@ -207,8 +203,8 @@ def rerun_specific_test():
     # Display available tests
     print("\n=== Available Tests to Rerun ===")
     for idx, test_num in enumerate(test_numbers, start=1):
-        test_name = test_mapping[test_num]['name']
-        print(f"[{idx}] {test_name}")
+        test_header = test_mapping[test_num]['header']
+        print(f"[{idx}] {test_header}")
     print(f"[{len(test_numbers) + 1}] Cancel")
     print("="*60)
     
@@ -233,12 +229,11 @@ def rerun_specific_test():
     # Get test configuration
     test_header = test_settings.get(f'test_excel_header_{selected_num}')
     duration_raw = test_settings.get(f'test_duration_{selected_num}')
-    test_name = test_mapping[selected_num]['name']
     
     duration = parse_time_value(duration_raw) if duration_raw is not None else None
     
     if not duration:
-        print(f"Error: No duration configured for {test_name}")
+        print(f"Error: No duration configured for {test_header}")
         logger.error(f"No duration configured for test {selected_num}")
         return
     
@@ -257,9 +252,9 @@ def rerun_specific_test():
             return
     
     # Run the test
-    print(f"\n=== Running Test: {test_name} ===")
+    print(f"\n=== Running Test: {test_header} ===")
     print(f"Duration: {duration:.2f} minutes")
-    logger.info(f"Rerunning test: {test_name} ({test_header}) for {duration} minutes")
+    logger.info(f"Rerunning test: {test_header} for {duration} minutes")
     
     samples = serialFunction(minutes=duration, global_timer_start=None, test_header=test_header)
     
@@ -272,7 +267,7 @@ def rerun_specific_test():
         else:
             print(f"✗ Failed to write test data.")
     else:
-        print(f"No samples collected for {test_name}")
+        print(f"No samples collected for {test_header}")
         logger.warning(f"No samples collected for rerun of test: {test_header}")
     
     print(f"\n=== Test Complete ===\n")

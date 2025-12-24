@@ -7,25 +7,21 @@ test_settings:
   # Default Excel output file for all tests
   default_excel_file: "power_measurements.xlsx"
   # Off
-  test_name_1: Off
   test_excel_header_1: "Off"
   test_start_time_1: 0        # Start immediately
   test_duration_1: "5:00"     # Run for 5 minutes
   after_test_pause_1: true
   # Short Idle
-  test_name_2: "Short Idle"
   test_excel_header_2: "Short Idle"
   test_start_time_2: "10:00"   # Start at 10 minutes
   test_duration_2: "5:00"     # Run for 5 minutes
   after_test_pause_2: true
   # Long Idle
-  test_name_3: "Long Idle"
   test_excel_header_3: "Long Idle"
   test_start_time_3: "23:00"   # Start at 23 minutes
   test_duration_3: "5:00"     # Run for 5 minutes
   after_test_pause_3: false
   # Sleep
-  test_name_4: "Sleep"
   test_excel_header_4: "Sleep"
   test_start_time_4: "35:45"   # Start at 35 minutes 45 seconds
   test_duration_4: "5:00"      # Run for 5 minutes
