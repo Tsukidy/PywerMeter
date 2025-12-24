@@ -301,8 +301,18 @@ class PowerCalc:
                 return False
             
             # Read the Excel file with pandas
+            # Check if the file has averages at the top (row 1 = "Averages", row 3 = headers)
             try:
-                self.df = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name)
+                # First, peek at the first row to see if it's "Averages"
+                df_peek = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name, nrows=1)
+                
+                # If first column of first row is "Averages", skip the first 2 rows
+                if not df_peek.empty and df_peek.columns[0] == 'Averages':
+                    self.df = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name, header=2)
+                    logger.debug("Detected averages at top, using row 3 as header")
+                else:
+                    self.df = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name)
+                    logger.debug("No averages at top, using row 1 as header")
             except FileNotFoundError:
                 logger.error(f"Workbook file not found: {self.workbook_filename}", exc_info=True)
                 print(f"ERROR: File not found: {self.workbook_filename}")
@@ -403,10 +413,26 @@ class PowerCalc:
                 end_col_letter = get_column_letter(num_cols)
                 self.ws.merge_cells(f'A1:{end_col_letter}1')
             
-            # Style the Averages header (optional: make it bold and centered)
-            from openpyxl.styles import Font, Alignment
+            # Style the Averages header (bold, centered, and bordered)
+            from openpyxl.styles import Font, Alignment, Border, Side
+            
+            # Create border style
+            border_style = Border(
+                left=Side(style='thin', color='000000'),
+                right=Side(style='thin', color='000000'),
+                top=Side(style='thin', color='000000'),
+                bottom=Side(style='thin', color='000000')
+            )
+            
             self.ws['A1'].font = Font(bold=True)
             self.ws['A1'].alignment = Alignment(horizontal='center')
+            self.ws['A1'].border = border_style
+            
+            # Apply border to all merged cells in row 1
+            if num_cols > 1:
+                for col_idx in range(1, num_cols + 1):
+                    col_letter = get_column_letter(col_idx)
+                    self.ws[f'{col_letter}1'].border = border_style
             
             # Add average formulas in row 2
             # Data now starts at row 4 (was row 2), goes to last_data_row + 2
