@@ -528,6 +528,10 @@ class PowerCalc:
             self.ws[f'{tap_col_letter}1'].alignment = Alignment(horizontal='center')
             self.ws[f'{tap_col_letter}1'].border = border_style
             
+            # Set column width to fit the text "Total Annual Power" (approximately 20 characters)
+            self.ws.column_dimensions[tap_col_letter].width = 22
+            logger.debug(f"Set column {tap_col_letter} width to 22")
+            
             # Get column letters for the formula
             # Need to account for the structure: row 1 = headers, row 2 = averages, row 3 = column names, row 4+ = data
             off_letter = get_column_letter(column_positions['off'])
