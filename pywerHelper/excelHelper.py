@@ -195,6 +195,178 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
         print(f"Error writing to Excel: {e}")
         return False
 
+class PowerCalc:
+    """
+    A class to handle power calculations and Excel formula operations.
+    """
+    
+    def __init__(self, workbook_filename="power_measurements.xlsx", sheet_name="Power Data"):
+        """
+        Initialize the PowerCalc class.
+        
+        Args:
+            workbook_filename (str): Path to the Excel workbook
+            sheet_name (str): Name of the sheet to work with
+        """
+        self.workbook_filename = workbook_filename
+        self.sheet_name = sheet_name
+        self.wb = None
+        self.ws = None
+        self.df = None
+        self.last_data_row = None
+    
+    def _load_workbook(self):
+        """Load the Excel workbook and worksheet."""
+        if not os.path.exists(self.workbook_filename):
+            logger.warning(f"Workbook not found: {self.workbook_filename}")
+            print(f"Workbook not found: {self.workbook_filename}")
+            return False
+        
+        # Read the Excel file with pandas
+        self.df = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name)
+        
+        if self.df.empty:
+            logger.warning("No data found in workbook")
+            print("No data found in workbook")
+            return False
+        
+        # Load workbook with openpyxl
+        from openpyxl import load_workbook
+        self.wb = load_workbook(self.workbook_filename)
+        self.ws = self.wb[self.sheet_name]
+        
+        # Find the last row with data
+        self.last_data_row = len(self.df) + 1  # +1 for header row
+        
+        return True
+    
+    def _save_and_close(self):
+        """Save and close the workbook."""
+        if self.wb:
+            self.wb.save(self.workbook_filename)
+            self.wb.close()
+    
+    def add_averages(self):
+        """
+        Add average calculations to the bottom of each column in the Excel file.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if not self._load_workbook():
+                return False
+            
+            # Add average formula for each column
+            from openpyxl.utils import get_column_letter
+            
+            for col_idx, col_name in enumerate(self.df.columns, start=1):
+                # Get column letter
+                col_letter = get_column_letter(col_idx)
+                
+                # Add "Average" label in first column of the average row
+                if col_idx == 1:
+                    self.ws[f'A{self.last_data_row + 2}'] = 'Average'
+                
+                # Add AVERAGE formula
+                formula_cell = self.ws[f'{col_letter}{self.last_data_row + 2}']
+                formula_cell.value = f'=AVERAGE({col_letter}2:{col_letter}{self.last_data_row})'
+            
+            # Save the workbook
+            self._save_and_close()
+            
+            logger.info(f"Added average calculations to {self.workbook_filename}")
+            print(f"Added average calculations to Excel file")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error adding calculations: {e}")
+            print(f"Error adding calculations: {e}")
+            return False
+    
+    def totalAnnualPower(self):
+        """
+        Calculate and add Total Annual Power based on the formula:
+        totalAnnualPower = 8760/1000*(off*0.15 + shortidle*0.45 + longidle*0.1 + sleep*0.3)
+        
+        Adds a "Total Annual Power" column to the left of the "sleep" column with the calculated value.
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if not self._load_workbook():
+                return False
+            
+            from openpyxl.utils import get_column_letter
+            
+            # Find columns by header name (case-insensitive)
+            columns_needed = ['off', 'shortidle', 'longidle', 'sleep']
+            column_positions = {}
+            
+            for col_idx, col_name in enumerate(self.df.columns, start=1):
+                col_name_lower = str(col_name).lower()
+                if col_name_lower in columns_needed:
+                    column_positions[col_name_lower] = col_idx
+            
+            # Check if all required columns exist
+            missing_columns = [col for col in columns_needed if col not in column_positions]
+            if missing_columns:
+                logger.warning(f"Missing required columns: {missing_columns}")
+                print(f"Warning: Missing required columns: {missing_columns}")
+                return False
+            
+            # Find the sleep column position
+            sleep_col_idx = column_positions['sleep']
+            
+            # Insert a new column to the left of sleep
+            self.ws.insert_cols(sleep_col_idx)
+            
+            # Add header for the new column
+            new_col_letter = get_column_letter(sleep_col_idx)
+            self.ws[f'{new_col_letter}1'] = 'Total Annual Power'
+            
+            # Get column letters for the formula (adjust for insertion)
+            off_letter = get_column_letter(column_positions['off'])
+            shortidle_letter = get_column_letter(column_positions['shortidle'] if column_positions['shortidle'] < sleep_col_idx else column_positions['shortidle'] + 1)
+            longidle_letter = get_column_letter(column_positions['longidle'] if column_positions['longidle'] < sleep_col_idx else column_positions['longidle'] + 1)
+            sleep_letter = get_column_letter(sleep_col_idx + 1)  # Sleep moved one column to the right
+            
+            # Add the formula in the Average row
+            # The Average row is at last_data_row + 2
+            avg_row = self.last_data_row + 2
+            formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{shortidle_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{sleep_letter}{avg_row}*0.3)'
+            self.ws[f'{new_col_letter}{avg_row}'] = formula
+            
+            # Save the workbook
+            self._save_and_close()
+            
+            logger.info(f"Added Total Annual Power calculation to {self.workbook_filename}")
+            print(f"Added Total Annual Power calculation to Excel file")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error adding Total Annual Power calculation: {e}")
+            print(f"Error adding Total Annual Power calculation: {e}")
+            return False
+
+
+# Backward compatibility wrapper function
+def powerCalc(workbook_filename="power_measurements.xlsx", sheet_name="Power Data"):
+    """
+    Legacy function wrapper for PowerCalc class.
+    Add average calculations to the bottom of each column in the Excel file.
+    
+    Args:
+        workbook_filename (str): Path to the Excel workbook
+        sheet_name (str): Name of the sheet to add calculations to
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    calc = PowerCalc(workbook_filename, sheet_name)
+    return calc.add_averages()
+
 
 # Module-level exports
-__all__ = ['create_workbook', 'import_data_to_workbook', 'import_multiple_files', 'write_test_row_to_excel', 'testFunction']
+__all__ = ['create_workbook', 'import_data_to_workbook', 'import_multiple_files', 'write_test_row_to_excel', 'powerCalc', 'PowerCalc']
