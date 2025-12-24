@@ -1,4 +1,4 @@
-from pywerHelper import serialComm, excelHelper
+from pywerHelper import serialComm, excelHelper, dataCollector, menuHelper
 import time, logging, os, yaml
 import sys
 
@@ -20,40 +20,6 @@ except PermissionError:
 except Exception as e:
     print(f"ERROR: Unexpected error loading configuration: {e}")
     sys.exit(1)
-
-def display_ascii_art():
-    """Display ASCII art for pywerMeter."""
-    art = r"""
-    ____                          __  ___      __           
-   / __ \__  ___      _____  ____/  |/  /__  / /____  _____
-  / /_/ / / / / | /| / / _ \/ __/ /|_/ / _ \/ __/ _ \/ ___/
- / ____/ /_/ /| |/ |/ /  __/ / / /  / /  __/ /_/  __/ /    
-/_/    \__, / |__/|__/\___/_/ /_/  /_/\___/\__/\___/_/     
-      /____/                                                
-    """
-    print(art)
-
-def display_menu(menu_options):
-    """
-    Display a menu with numbered options.
-    
-    Args:
-        menu_options (dict): Dictionary with keys as option numbers and values as option descriptions
-        
-    Returns:
-        str: The selected option key
-    """
-    print("\n" + "="*60)
-    for key, description in menu_options.items():
-        print(f"[{key}] {description}")
-    print("="*60)
-    
-    while True:
-        choice = input("\nSelect an option: ").strip()
-        if choice in menu_options:
-            return choice
-        else:
-            print(f"Invalid option. Please select from {list(menu_options.keys())}")
 
 def run_power_tests():
     """Execute the main power measurement test sequence."""
@@ -142,7 +108,7 @@ def run_power_tests():
             logger.info(f"Starting Test {test_num}: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
             
             # Run test and collect samples
-            samples = serialFunction(minutes=duration, global_timer_start=global_start_time, test_header=test_header)
+            samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
             
             # Write samples to Excel immediately after test completes
             if samples:
@@ -256,7 +222,7 @@ def rerun_specific_test():
     print(f"Duration: {duration:.2f} minutes")
     logger.info(f"Rerunning test: {test_header} for {duration} minutes")
     
-    samples = serialFunction(minutes=duration, global_timer_start=None, test_header=test_header)
+    samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=None, test_header=test_header)
     
     # Write to Excel (will overwrite existing column)
     if samples:
@@ -338,140 +304,6 @@ def loggingSetup():
         sys.exit(1)
 
 
-def initSerialDevice():
-    """Initialize serial device with comprehensive error handling."""
-    try:
-        logger.info("Initializing serial device")
-        dev = serialComm.SerialDevice()
-        logger.info("Serial device initialized successfully")
-        return dev
-    except serialComm.serial.SerialException as e:
-        print(f"ERROR: Serial port error: {e}")
-        print("Check that the device is connected and the COM port is correct in config.yaml")
-        logger.error(f"Serial port exception during initialization: {e}", exc_info=True)
-        return None
-    except FileNotFoundError as e:
-        print(f"ERROR: Configuration file not found: {e}")
-        logger.error(f"Configuration file not found during serial init: {e}", exc_info=True)
-        return None
-    except Exception as e:
-        print(f"ERROR: Unexpected error initializing serial device: {e}")
-        logger.error(f"Unexpected error initializing serial device: {e}", exc_info=True)
-        return None
-
-
-def readSerialData(dev, command=b'?MPOW'):
-    """Read data from serial device with proper error handling."""
-    try:
-        logger.debug(f"Querying device with command: {command}")
-        unformattedData, retHexData, retAsciiData = dev.query(command=command)
-        logger.debug(f"Received data: {retAsciiData}")
-        return unformattedData, retHexData, retAsciiData
-    except serialComm.serial.SerialException as e:
-        print(f"ERROR: Serial communication error: {e}")
-        logger.error(f"Serial communication error: {e}", exc_info=True)
-        return None, None, None
-    except AttributeError as e:
-        print(f"ERROR: Invalid device object: {e}")
-        logger.error(f"Invalid device object in readSerialData: {e}", exc_info=True)
-        return None, None, None
-    except Exception as e:
-        print(f"ERROR: Unexpected error reading serial data: {e}")
-        logger.error(f"Unexpected error reading serial data: {e}", exc_info=True)
-        return None, None, None
-
-def serialFunction(minutes=0.25, global_timer_start=None, test_header=None):
-    """Execute serial data collection with comprehensive error handling."""
-    # Initialize serial device & variables
-    dev = initSerialDevice()
-    if dev is None:
-        print("ERROR: Failed to initialize serial device. Cannot proceed with test.")
-        logger.error("Failed to initialize serial device. Test aborted.")
-        return []
-    
-    test_start_time = time.time()
-    end_time = test_start_time + minutes * 60
-    sample_count = 0
-    samples = []  # Store all samples for this test
-    recent_samples = []  # Keep track of last 15 samples for display
-    
-    print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
-    logger.info(f"Starting data collection: {minutes:.2f} minutes for test '{test_header}'")
-
-    # Read serial data for specified duration
-    try:
-        while time.time() < end_time:
-            unformattedData, retHexData, retAsciiData = readSerialData(dev, command=b'?MPOW')
-            if retAsciiData:
-                # Store sample
-                samples.append(retAsciiData)
-                sample_count += 1
-                # Add to recent samples and keep only last 15
-                recent_samples.append(retAsciiData)
-                if len(recent_samples) > 15:
-                    recent_samples.pop(0)
-            
-            # Calculate time values
-            current_time = time.time()
-            test_elapsed = (current_time - test_start_time) / 60
-            test_remaining = minutes - test_elapsed
-            
-            # Calculate global elapsed time if global timer was provided
-            if global_timer_start:
-                global_elapsed = (current_time - global_timer_start) / 60
-                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
-            else:
-                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
-            
-            # Use Windows-compatible method to update display
-            # Move cursor to beginning and clear with spaces
-            lines_to_clear = 16  # 1 status + 15 samples
-            
-            # Move cursor up if not first iteration
-            if sample_count > 1:
-                for _ in range(lines_to_clear):
-                    print(f"\033[F", end="")  # Move cursor up one line
-            
-            # Print status line
-            print(f"\r{status:<120}")  # Left-align and pad to 120 chars to clear previous text
-            
-            # Print recent samples
-            for i in range(15):
-                if i < len(recent_samples):
-                    print(f"  [{i+1:2d}] {recent_samples[i]:<100}")  # Pad to clear previous text
-                else:
-                    print(f"{' ':<120}")  # Empty line padded with spaces
-            
-            # Flush output
-            print(end="", flush=True)
-        
-        # Move past the display area
-        print("\n")
-        print(f"Test complete: {sample_count} samples collected")
-        logger.info(f"Test complete: {sample_count} samples collected for '{test_header}'")
-        
-    except KeyboardInterrupt:
-        print("\n\nTest interrupted by user (Ctrl+C)")
-        logger.warning(f"Test '{test_header}' interrupted by user. Collected {sample_count} samples before interruption.")
-        print(f"Collected {sample_count} samples before interruption.")
-    except Exception as e:
-        print(f"\nERROR: Unexpected error during data collection: {e}")
-        logger.error(f"Unexpected error during data collection for '{test_header}': {e}", exc_info=True)
-    finally:
-        # Always close serial device
-        try:
-            if dev:
-                logger.info("Closing serial device")
-                dev.close()
-                logger.info("Serial device closed successfully")
-        except Exception as e:
-            print(f"ERROR: Error closing serial device: {e}")
-            logger.error(f"Error closing serial device: {e}", exc_info=True)
-
-    logger.info(f"Serial data logging complete. Returning {len(samples)} samples")
-    return samples  # Return collected samples
-
-
 # Main execution block
 if __name__ == "__main__":
     try:
@@ -481,7 +313,7 @@ if __name__ == "__main__":
         logger.info("Starting pywerMeter application")
         
         # Display ASCII art
-        display_ascii_art()
+        menuHelper.display_ascii_art()
         
         # Define menu options (easily expandable - just add new entries here)
         menu_options = {
@@ -494,7 +326,7 @@ if __name__ == "__main__":
         # Main menu loop
         while True:
             try:
-                choice = display_menu(menu_options)
+                choice = menuHelper.display_menu(menu_options)
                 
                 if choice == '1':
                     # Run power measurement tests
