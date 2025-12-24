@@ -204,8 +204,8 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
         # Convert samples to numeric values (handles text strings from serial data)
         try:
             numeric_samples = pd.to_numeric(samples, errors='coerce')
-            # Count how many values failed to convert
-            nan_count = numeric_samples.isna().sum()
+            # Count how many values failed to convert (pd.isna works with numpy arrays)
+            nan_count = pd.isna(numeric_samples).sum()
             if nan_count > 0:
                 logger.warning(f"{nan_count} samples could not be converted to numeric values")
         except Exception as e:
