@@ -556,7 +556,7 @@ class PowerCalc:
             
             # Add the formula in row 2 (where the averages are)
             avg_row = 2
-            formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{shortidle_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{sleep_letter}{avg_row}*0.3)'
+            formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{sleep_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{shortidle_letter}{avg_row}*0.3)'
             self.ws[f'{tap_col_letter}{avg_row}'] = formula
             self.ws[f'{tap_col_letter}{avg_row}'].border = border_style
             logger.debug(f"Added Total Annual Power formula: {formula}")
