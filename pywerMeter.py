@@ -157,6 +157,107 @@ def run_power_tests():
     print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
     logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
 
+def rerun_specific_test():
+    """Allow user to select and rerun a specific test, overwriting its data in Excel."""
+    test_settings = config.get('test_settings', {})
+    
+    # Find all available tests
+    test_mapping = {}
+    test_numbers = []
+    
+    for key in test_settings.keys():
+        if key.startswith('test_name_'):
+            test_num = key.split('_')[-1]
+            test_name = test_settings.get(f'test_name_{test_num}')
+            test_header = test_settings.get(f'test_excel_header_{test_num}')
+            if test_name and test_header:
+                test_numbers.append(test_num)
+                test_mapping[test_num] = {
+                    'name': test_name,
+                    'header': test_header
+                }
+    
+    if not test_mapping:
+        print("No tests found in configuration.")
+        logger.warning("No tests found in configuration for rerun")
+        return
+    
+    # Sort test numbers
+    test_numbers.sort()
+    
+    # Display available tests
+    print("\n=== Available Tests to Rerun ===")
+    for idx, test_num in enumerate(test_numbers, start=1):
+        test_name = test_mapping[test_num]['name']
+        print(f"[{idx}] {test_name}")
+    print(f"[{len(test_numbers) + 1}] Cancel")
+    print("="*60)
+    
+    # Get user selection
+    while True:
+        try:
+            choice = input("\nSelect test to rerun: ").strip()
+            choice_idx = int(choice)
+            
+            if choice_idx == len(test_numbers) + 1:
+                print("Cancelled.")
+                return
+            
+            if 1 <= choice_idx <= len(test_numbers):
+                selected_num = test_numbers[choice_idx - 1]
+                break
+            else:
+                print(f"Invalid option. Please select 1-{len(test_numbers) + 1}.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+    
+    # Get test configuration
+    test_header = test_settings.get(f'test_excel_header_{selected_num}')
+    duration_raw = test_settings.get(f'test_duration_{selected_num}')
+    test_name = test_mapping[selected_num]['name']
+    
+    duration = parse_time_value(duration_raw) if duration_raw is not None else None
+    
+    if not duration:
+        print(f"Error: No duration configured for {test_name}")
+        logger.error(f"No duration configured for test {selected_num}")
+        return
+    
+    # Get Excel filename
+    default_file = test_settings.get('default_excel_file', 'power_measurements.xlsx')
+    filename = input(f"\nEnter Excel filename (press Enter for '{default_file}'): ").strip()
+    if not filename:
+        filename = default_file
+    
+    # Confirm before overwriting
+    if os.path.exists(filename):
+        print(f"\n⚠️  This will overwrite the existing '{test_header}' column in '{filename}'")
+        confirm = input("Continue? (y/n): ").strip().lower()
+        if confirm != 'y':
+            print("Cancelled.")
+            return
+    
+    # Run the test
+    print(f"\n=== Running Test: {test_name} ===")
+    print(f"Duration: {duration:.2f} minutes")
+    logger.info(f"Rerunning test: {test_name} ({test_header}) for {duration} minutes")
+    
+    samples = serialFunction(minutes=duration, global_timer_start=None, test_header=test_header)
+    
+    # Write to Excel (will overwrite existing column)
+    if samples:
+        print(f"\nWriting test data to Excel...")
+        logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
+        if excelHelper.write_test_row_to_excel(test_header, samples, filename):
+            print(f"✓ Test data written successfully! Column '{test_header}' updated.")
+        else:
+            print(f"✗ Failed to write test data.")
+    else:
+        print(f"No samples collected for {test_name}")
+        logger.warning(f"No samples collected for rerun of test: {test_header}")
+    
+    print(f"\n=== Test Complete ===\n")
+
 def parse_time_value(time_value):
     """
     Parse time value from config. Accepts:
@@ -316,7 +417,8 @@ if __name__ == "__main__":
     menu_options = {
         '1': 'Run Power Measurement Tests',
         '2': 'Add Power Calculations to Existing Excel File',
-        '3': 'Exit'
+        '3': 'Rerun Specific Test',
+        '4': 'Exit'
     }
     
     # Main menu loop
@@ -387,6 +489,11 @@ if __name__ == "__main__":
             print()
             
         elif choice == '3':
+            # Rerun specific test
+            logger.info("User selected: Rerun Specific Test")
+            rerun_specific_test()
+            
+        elif choice == '4':
             # Exit
             logger.info("User selected: Exit")
             print("\nExiting pywerMeter. Goodbye!")
