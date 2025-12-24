@@ -1,10 +1,25 @@
 from pywerHelper import serialComm, excelHelper
 import time, logging, os, yaml
+import sys
 
 # Check config file for settings
 configFilePath = "./config.yaml"
-with open(configFilePath, 'r') as file:
-    config = yaml.safe_load(file)
+try:
+    with open(configFilePath, 'r') as file:
+        config = yaml.safe_load(file)
+except FileNotFoundError:
+    print(f"ERROR: Configuration file not found: {configFilePath}")
+    print("Please ensure config.yaml exists in the application directory.")
+    sys.exit(1)
+except yaml.YAMLError as e:
+    print(f"ERROR: Invalid YAML syntax in configuration file: {e}")
+    sys.exit(1)
+except PermissionError:
+    print(f"ERROR: Permission denied reading configuration file: {configFilePath}")
+    sys.exit(1)
+except Exception as e:
+    print(f"ERROR: Unexpected error loading configuration: {e}")
+    sys.exit(1)
 
 def display_ascii_art():
     """Display ASCII art for pywerMeter."""
@@ -62,10 +77,14 @@ def run_power_tests():
                 try:
                     os.remove(default_excel_file)
                     logger.info(f"Deleted existing file: {default_excel_file}")
-                except Exception as e:
-                    print(f"Error deleting file: {e}")
-                    logger.error(f"Error deleting existing file: {e}")
-                    exit(1)
+                except PermissionError:
+                    print(f"ERROR: Permission denied. File may be open in another program: {default_excel_file}")
+                    logger.error(f"Permission denied deleting file: {default_excel_file}", exc_info=True)
+                    return
+                except OSError as e:
+                    print(f"ERROR: Failed to delete file: {e}")
+                    logger.error(f"OS error deleting file: {default_excel_file}", exc_info=True)
+                    return
                 break
             elif response == 'n':
                 # Generate new filename with timestamp
@@ -281,62 +300,113 @@ def parse_time_value(time_value):
     return 0.0
 
 def loggingSetup():
-    # Setup Logging
-    logPath = config['log_settings']['log_dir']
-    logName = "pywerMeter.log"
-    fullLogPath = os.path.join(logPath, logName)
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    # Create log directory if it doesn't exist & log file. Python will not do this itself.
-    if not os.path.exists(logPath):
-        os.makedirs(logPath)
-    if not os.path.exists(fullLogPath):
-        open(fullLogPath, 'a').close()
-    logging.basicConfig(filename=fullLogPath, encoding='utf-8', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-    return logger
+    """Setup logging with proper error handling."""
+    try:
+        # Setup Logging
+        logPath = config['log_settings']['log_dir']
+        logName = "pywerMeter.log"
+        fullLogPath = os.path.join(logPath, logName)
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
+        
+        # Create log directory if it doesn't exist & log file. Python will not do this itself.
+        if not os.path.exists(logPath):
+            try:
+                os.makedirs(logPath)
+            except PermissionError:
+                print(f"ERROR: Permission denied creating log directory: {logPath}")
+                sys.exit(1)
+            except OSError as e:
+                print(f"ERROR: Failed to create log directory: {e}")
+                sys.exit(1)
+        
+        if not os.path.exists(fullLogPath):
+            try:
+                open(fullLogPath, 'a').close()
+            except PermissionError:
+                print(f"ERROR: Permission denied creating log file: {fullLogPath}")
+                sys.exit(1)
+            except OSError as e:
+                print(f"ERROR: Failed to create log file: {e}")
+                sys.exit(1)
+        
+        logging.basicConfig(filename=fullLogPath, encoding='utf-8', level=logging.DEBUG, 
+                          format='%(asctime)s - %(levelname)s - %(message)s')
+        logger.info("Logging system initialized successfully")
+        return logger
+    except KeyError as e:
+        print(f"ERROR: Missing configuration key: {e}")
+        print("Please check your config.yaml file.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Failed to setup logging: {e}")
+        sys.exit(1)
 
 
 def initSerialDevice():
+    """Initialize serial device with comprehensive error handling."""
     try:
-        logger.info("Initializing serial device.")
+        logger.info("Initializing serial device")
         dev = serialComm.SerialDevice()
+        logger.info("Serial device initialized successfully")
         return dev
+    except serialComm.serial.SerialException as e:
+        print(f"ERROR: Serial port error: {e}")
+        print("Check that the device is connected and the COM port is correct in config.yaml")
+        logger.error(f"Serial port exception during initialization: {e}", exc_info=True)
+        return None
+    except FileNotFoundError as e:
+        print(f"ERROR: Configuration file not found: {e}")
+        logger.error(f"Configuration file not found during serial init: {e}", exc_info=True)
+        return None
     except Exception as e:
-        print(f"Failed to initialize serial device: {e}")
-        logger.error(f"Failed to initialize serial device: {e}")
+        print(f"ERROR: Unexpected error initializing serial device: {e}")
+        logger.error(f"Unexpected error initializing serial device: {e}", exc_info=True)
         return None
 
 
 def readSerialData(dev, command=b'?MPOW'):
+    """Read data from serial device with proper error handling."""
     try:
-        logger.info("Reading serial data.")
-        unformattedData, retHexData, retAsciiData  = dev.query(command=command)
-        logger.info(f"Recieved data: {retAsciiData}")
+        logger.debug(f"Querying device with command: {command}")
+        unformattedData, retHexData, retAsciiData = dev.query(command=command)
+        logger.debug(f"Received data: {retAsciiData}")
         return unformattedData, retHexData, retAsciiData
+    except serialComm.serial.SerialException as e:
+        print(f"ERROR: Serial communication error: {e}")
+        logger.error(f"Serial communication error: {e}", exc_info=True)
+        return None, None, None
+    except AttributeError as e:
+        print(f"ERROR: Invalid device object: {e}")
+        logger.error(f"Invalid device object in readSerialData: {e}", exc_info=True)
+        return None, None, None
     except Exception as e:
-        print(f"Error reading serial data: {e}")
-        logger.error(f"Error reading serial data: {e}")
+        print(f"ERROR: Unexpected error reading serial data: {e}")
+        logger.error(f"Unexpected error reading serial data: {e}", exc_info=True)
         return None, None, None
 
 def serialFunction(minutes=0.25, global_timer_start=None, test_header=None):
+    """Execute serial data collection with comprehensive error handling."""
     # Initialize serial device & variables
     dev = initSerialDevice()
     if dev is None:
-        print("Failed to initialize serial device. Exiting.")
-        logger.error("Failed to initialize serial device. Exiting.")
-        exit(1)
+        print("ERROR: Failed to initialize serial device. Cannot proceed with test.")
+        logger.error("Failed to initialize serial device. Test aborted.")
+        return []
     
     test_start_time = time.time()
     end_time = test_start_time + minutes * 60
     sample_count = 0
     samples = []  # Store all samples for this test
     recent_samples = []  # Keep track of last 15 samples for display
+    
     print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
+    logger.info(f"Starting data collection: {minutes:.2f} minutes for test '{test_header}'")
 
     # Read serial data for specified duration
     try:
         while time.time() < end_time:
-            unformattedData, retHexData, retAsciiData  = readSerialData(dev, command=b'?MPOW')
+            unformattedData, retHexData, retAsciiData = readSerialData(dev, command=b'?MPOW')
             if retAsciiData:
                 # Store sample
                 samples.append(retAsciiData)
@@ -383,124 +453,153 @@ def serialFunction(minutes=0.25, global_timer_start=None, test_header=None):
         # Move past the display area
         print("\n")
         print(f"Test complete: {sample_count} samples collected")
-        logger.info(f"Test complete: {sample_count} samples collected")
+        logger.info(f"Test complete: {sample_count} samples collected for '{test_header}'")
         
+    except KeyboardInterrupt:
+        print("\n\nTest interrupted by user (Ctrl+C)")
+        logger.warning(f"Test '{test_header}' interrupted by user. Collected {sample_count} samples before interruption.")
+        print(f"Collected {sample_count} samples before interruption.")
     except Exception as e:
-        print(f"\nError during data collection: {e}")
-        logger.error(f"Error during data collection: {e}")
-    
-    # Close serial device
-    try:
-        logger.info("Closing serial device.")
-        dev.close()
-    except Exception as e:
-        print(f"Error closing serial device: {e}")
-        logger.error(f"Error closing serial device: {e}")
+        print(f"\nERROR: Unexpected error during data collection: {e}")
+        logger.error(f"Unexpected error during data collection for '{test_header}': {e}", exc_info=True)
+    finally:
+        # Always close serial device
+        try:
+            if dev:
+                logger.info("Closing serial device")
+                dev.close()
+                logger.info("Serial device closed successfully")
+        except Exception as e:
+            print(f"ERROR: Error closing serial device: {e}")
+            logger.error(f"Error closing serial device: {e}", exc_info=True)
 
-    print("Serial data logging complete.")
-    logger.info("Serial data logging complete.")
-    
+    logger.info(f"Serial data logging complete. Returning {len(samples)} samples")
     return samples  # Return collected samples
 
 
 # Main execution block
 if __name__ == "__main__":
-
-    # Setup logging
-    logger = loggingSetup()
-    logger.info("Starting pywerMeter application.")
-    
-    # Display ASCII art
-    display_ascii_art()
-    
-    # Define menu options (easily expandable - just add new entries here)
-    menu_options = {
-        '1': 'Run Power Measurement Tests',
-        '2': 'Add Power Calculations to Existing Excel File',
-        '3': 'Rerun Specific Test',
-        '4': 'Exit'
-    }
-    
-    # Main menu loop
-    while True:
-        choice = display_menu(menu_options)
+    try:
+        # Setup logging
+        logger = loggingSetup()
+        logger.info("="*60)
+        logger.info("Starting pywerMeter application")
         
-        if choice == '1':
-            # Run power measurement tests
-            logger.info("User selected: Run Power Measurement Tests")
-            run_power_tests()
-            
-        elif choice == '2':
-            # Add power calculations to existing Excel file
-            logger.info("User selected: Add Power Calculations")
-            print("\n=== Add Power Calculations ===")
-            
-            # Get filename from user
-            default_file = config.get('test_settings', {}).get('default_excel_file', 'power_measurements.xlsx')
-            filename = input(f"Enter Excel filename (press Enter for '{default_file}'): ").strip()
-            if not filename:
-                filename = default_file
-            
-            if not os.path.exists(filename):
-                print(f"Error: File '{filename}' not found.")
-                logger.error(f"Excel file not found: {filename}")
+        # Display ASCII art
+        display_ascii_art()
+        
+        # Define menu options (easily expandable - just add new entries here)
+        menu_options = {
+            '1': 'Run Power Measurement Tests',
+            '2': 'Add Power Calculations to Existing Excel File',
+            '3': 'Rerun Specific Test',
+            '4': 'Exit'
+        }
+        
+        # Main menu loop
+        while True:
+            try:
+                choice = display_menu(menu_options)
+                
+                if choice == '1':
+                    # Run power measurement tests
+                    logger.info("User selected: Run Power Measurement Tests")
+                    run_power_tests()
+                    
+                elif choice == '2':
+                    # Add power calculations to existing Excel file
+                    logger.info("User selected: Add Power Calculations")
+                    print("\n=== Add Power Calculations ===")
+                    
+                    # Get filename from user
+                    default_file = config.get('test_settings', {}).get('default_excel_file', 'power_measurements.xlsx')
+                    filename = input(f"Enter Excel filename (press Enter for '{default_file}'): ").strip()
+                    if not filename:
+                        filename = default_file
+                    
+                    if not os.path.exists(filename):
+                        print(f"Error: File '{filename}' not found.")
+                        logger.error(f"Excel file not found: {filename}")
+                        continue
+                    
+                    # Ask which calculations to perform
+                    print("\nSelect calculation type:")
+                    print("[1] Add Averages Only")
+                    print("[2] Add Total Annual Power Only")
+                    print("[3] Add Both (Averages + Total Annual Power)")
+                    
+                    calc_choice = input("Select option: ").strip()
+                    
+                    try:
+                        calc = excelHelper.PowerCalc(filename, "Power Data")
+                        
+                        if calc_choice == '1':
+                            print("\nAdding averages...")
+                            logger.info(f"Adding averages to {filename}")
+                            if calc.add_averages():
+                                print("✓ Averages added successfully!")
+                            else:
+                                print("✗ Failed to add averages.")
+                                
+                        elif calc_choice == '2':
+                            print("\nAdding Total Annual Power...")
+                            logger.info(f"Adding Total Annual Power to {filename}")
+                            if calc.totalAnnualPower():
+                                print("✓ Total Annual Power added successfully!")
+                            else:
+                                print("✗ Failed to add Total Annual Power.")
+                                
+                        elif calc_choice == '3':
+                            print("\nAdding averages...")
+                            logger.info(f"Adding averages and Total Annual Power to {filename}")
+                            if calc.add_averages():
+                                print("✓ Averages added successfully!")
+                                # Reload for totalAnnualPower
+                                calc2 = excelHelper.PowerCalc(filename, "Power Data")
+                                print("Adding Total Annual Power...")
+                                if calc2.totalAnnualPower():
+                                    print("✓ Total Annual Power added successfully!")
+                                else:
+                                    print("✗ Failed to add Total Annual Power.")
+                            else:
+                                print("✗ Failed to add averages.")
+                        else:
+                            print("Invalid option.")
+                            logger.warning(f"Invalid calculation option selected: {calc_choice}")
+                    except Exception as e:
+                        print(f"ERROR: Failed to perform calculations: {e}")
+                        logger.error(f"Failed to perform Excel calculations: {e}", exc_info=True)
+                    
+                    print()
+                    
+                elif choice == '3':
+                    # Rerun specific test
+                    logger.info("User selected: Rerun Specific Test")
+                    rerun_specific_test()
+                    
+                elif choice == '4':
+                    # Exit
+                    logger.info("User selected: Exit")
+                    print("\nExiting pywerMeter. Goodbye!")
+                    logger.info("Application shutdown normally")
+                    break
+                
+                else:
+                    # This shouldn't happen due to validation in display_menu, but just in case
+                    print("Invalid option.")
+                    logger.warning(f"Invalid menu selection: {choice}")
+                    
+            except KeyboardInterrupt:
+                print("\n\nMenu interrupted by user (Ctrl+C)")
+                logger.info("Menu loop interrupted by user")
                 continue
-            
-            # Ask which calculations to perform
-            print("\nSelect calculation type:")
-            print("[1] Add Averages Only")
-            print("[2] Add Total Annual Power Only")
-            print("[3] Add Both (Averages + Total Annual Power)")
-            
-            calc_choice = input("Select option: ").strip()
-            
-            calc = excelHelper.PowerCalc(filename, "Power Data")
-            
-            if calc_choice == '1':
-                print("\nAdding averages...")
-                if calc.add_averages():
-                    print("✓ Averages added successfully!")
-                else:
-                    print("✗ Failed to add averages.")
-                    
-            elif calc_choice == '2':
-                print("\nAdding Total Annual Power...")
-                if calc.totalAnnualPower():
-                    print("✓ Total Annual Power added successfully!")
-                else:
-                    print("✗ Failed to add Total Annual Power.")
-                    
-            elif calc_choice == '3':
-                print("\nAdding averages...")
-                if calc.add_averages():
-                    print("✓ Averages added successfully!")
-                    # Reload for totalAnnualPower
-                    calc2 = excelHelper.PowerCalc(filename, "Power Data")
-                    print("Adding Total Annual Power...")
-                    if calc2.totalAnnualPower():
-                        print("✓ Total Annual Power added successfully!")
-                    else:
-                        print("✗ Failed to add Total Annual Power.")
-                else:
-                    print("✗ Failed to add averages.")
-            else:
-                print("Invalid option.")
-            
-            print()
-            
-        elif choice == '3':
-            # Rerun specific test
-            logger.info("User selected: Rerun Specific Test")
-            rerun_specific_test()
-            
-        elif choice == '4':
-            # Exit
-            logger.info("User selected: Exit")
-            print("\nExiting pywerMeter. Goodbye!")
-            break
-        
-        else:
-            # This shouldn't happen due to validation in display_menu, but just in case
-            print("Invalid option.")
-            logger.warning(f"Invalid menu selection: {choice}")
+    
+    except KeyboardInterrupt:
+        print("\n\nApplication interrupted by user (Ctrl+C). Exiting...")
+        logger.info("Application interrupted by user. Shutting down.")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\nFATAL ERROR: Unexpected error in main execution: {e}")
+        logger.critical(f"Fatal error in main execution: {e}", exc_info=True)
+        sys.exit(1)
 
