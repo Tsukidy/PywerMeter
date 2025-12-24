@@ -320,7 +320,7 @@ if __name__ == "__main__":
             '1': 'Run Power Measurement Tests',
             '2': 'Add Power Calculations to Existing Excel File',
             '3': 'Rerun Specific Test',
-            '4': 'Exit'
+            'x': 'Exit'
         }
         
         # Main menu loop
