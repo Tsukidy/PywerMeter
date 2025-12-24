@@ -300,14 +300,33 @@ class PowerCalc:
                 print(f"ERROR: Workbook not found: {self.workbook_filename}")
                 return False
             
-            # Read the Excel file with pandas
-            # Check if the file has averages at the top (row 1 = "Averages", row 3 = headers)
+            # Load workbook with openpyxl first to check structure
             try:
-                # First, peek at the first row to see if it's "Averages"
-                df_peek = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name, nrows=1)
-                
-                # If first column of first row is "Averages", skip the first 2 rows
-                if not df_peek.empty and df_peek.columns[0] == 'Averages':
+                from openpyxl import load_workbook
+                self.wb = load_workbook(self.workbook_filename)
+            except PermissionError:
+                logger.error(f"Permission denied loading workbook with openpyxl: {self.workbook_filename}", exc_info=True)
+                print(f"ERROR: Permission denied. File may be open: {self.workbook_filename}")
+                return False
+            except Exception as e:
+                logger.error(f"Error loading workbook with openpyxl: {e}", exc_info=True)
+                print(f"ERROR: Failed to load workbook: {e}")
+                return False
+            
+            try:
+                self.ws = self.wb[self.sheet_name]
+            except KeyError:
+                logger.error(f"Sheet '{self.sheet_name}' not found in workbook", exc_info=True)
+                print(f"ERROR: Sheet '{self.sheet_name}' not found")
+                return False
+            
+            # Check if averages are at the top by looking at cell A1
+            has_averages_at_top = (self.ws['A1'].value == 'Averages')
+            
+            # Read the Excel file with pandas
+            # If averages are at top, row 3 is the header; otherwise row 1
+            try:
+                if has_averages_at_top:
                     self.df = pd.read_excel(self.workbook_filename, sheet_name=self.sheet_name, header=2)
                     logger.debug("Detected averages at top, using row 3 as header")
                 else:
@@ -329,26 +348,6 @@ class PowerCalc:
             if self.df.empty:
                 logger.warning(f"No data found in workbook sheet '{self.sheet_name}'")
                 print(f"WARNING: No data found in workbook sheet '{self.sheet_name}'")
-                return False
-            
-            # Load workbook with openpyxl
-            try:
-                from openpyxl import load_workbook
-                self.wb = load_workbook(self.workbook_filename)
-            except PermissionError:
-                logger.error(f"Permission denied loading workbook with openpyxl: {self.workbook_filename}", exc_info=True)
-                print(f"ERROR: Permission denied. File may be open: {self.workbook_filename}")
-                return False
-            except Exception as e:
-                logger.error(f"Error loading workbook with openpyxl: {e}", exc_info=True)
-                print(f"ERROR: Failed to load workbook: {e}")
-                return False
-            
-            try:
-                self.ws = self.wb[self.sheet_name]
-            except KeyError:
-                logger.error(f"Sheet '{self.sheet_name}' not found in workbook", exc_info=True)
-                print(f"ERROR: Sheet '{self.sheet_name}' not found")
                 return False
             
             # Find the last row with data
@@ -471,7 +470,7 @@ class PowerCalc:
         Calculate and add Total Annual Power based on the formula:
         totalAnnualPower = 8760/1000*(off*0.15 + shortidle*0.45 + longidle*0.1 + sleep*0.3)
         
-        Adds a "Total Annual Power" column to the left of the "sleep" column with the calculated value.
+        Adds a "Total Annual Power" header to the right of the "Averages" span with the calculated value below it.
         
         Returns:
             bool: True if successful, False otherwise
@@ -482,6 +481,7 @@ class PowerCalc:
                 return False
             
             from openpyxl.utils import get_column_letter
+            from openpyxl.styles import Font, Alignment, Border, Side
             
             # Find columns by header name (case-insensitive, spaces removed)
             columns_needed = ['off', 'shortidle', 'longidle', 'sleep']
@@ -501,39 +501,45 @@ class PowerCalc:
                 print(f"Required columns are: {', '.join(columns_needed)}")
                 return False
             
-            # Find the sleep column position
-            sleep_col_idx = column_positions['sleep']
+            # Check if averages are at the top
+            has_averages_at_top = (self.ws['A1'].value == 'Averages')
             
-            # Insert a new column to the right of sleep (after sleep)
-            try:
-                self.ws.insert_cols(sleep_col_idx + 1)
-                logger.debug(f"Inserted new column at position {sleep_col_idx + 1}")
-            except Exception as e:
-                logger.error(f"Error inserting column: {e}", exc_info=True)
-                print(f"ERROR: Failed to insert column: {e}")
+            if not has_averages_at_top:
+                print("ERROR: Total Annual Power requires averages to be added first")
+                logger.error("Attempted to add Total Annual Power without averages at top")
                 return False
             
-            # Add header for the new column
-            new_col_letter = get_column_letter(sleep_col_idx + 1)
-            self.ws[f'{new_col_letter}1'] = 'Total Annual Power'
+            # Place Total Annual Power in the column right after the last data column
+            num_cols = len(self.df.columns)
+            tap_col_idx = num_cols + 1
+            tap_col_letter = get_column_letter(tap_col_idx)
             
-            # Get column letters for the formula (no adjustment needed since we inserted after sleep)
+            # Create border style
+            border_style = Border(
+                left=Side(style='thin', color='000000'),
+                right=Side(style='thin', color='000000'),
+                top=Side(style='thin', color='000000'),
+                bottom=Side(style='thin', color='000000')
+            )
+            
+            # Add "Total Annual Power" header in row 1
+            self.ws[f'{tap_col_letter}1'] = 'Total Annual Power'
+            self.ws[f'{tap_col_letter}1'].font = Font(bold=True)
+            self.ws[f'{tap_col_letter}1'].alignment = Alignment(horizontal='center')
+            self.ws[f'{tap_col_letter}1'].border = border_style
+            
+            # Get column letters for the formula
+            # Need to account for the structure: row 1 = headers, row 2 = averages, row 3 = column names, row 4+ = data
             off_letter = get_column_letter(column_positions['off'])
             shortidle_letter = get_column_letter(column_positions['shortidle'])
             longidle_letter = get_column_letter(column_positions['longidle'])
             sleep_letter = get_column_letter(column_positions['sleep'])
             
-            # Add the formula in the Average row (row 2 if averages exist, otherwise last_data_row + 2)
-            # Check if averages are at the top (row 1 has "Averages" header)
-            if self.ws['A1'].value == 'Averages':
-                avg_row = 2
-                logger.debug("Using row 2 for Total Annual Power (averages at top)")
-            else:
-                avg_row = self.last_data_row + 2
-                logger.debug(f"Using row {avg_row} for Total Annual Power (averages at bottom)")
-            
+            # Add the formula in row 2 (where the averages are)
+            avg_row = 2
             formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{shortidle_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{sleep_letter}{avg_row}*0.3)'
-            self.ws[f'{new_col_letter}{avg_row}'] = formula
+            self.ws[f'{tap_col_letter}{avg_row}'] = formula
+            self.ws[f'{tap_col_letter}{avg_row}'].border = border_style
             logger.debug(f"Added Total Annual Power formula: {formula}")
             
             # Save the workbook
