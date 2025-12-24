@@ -1,0 +1,45 @@
+# Test settings for pywerMeter
+# Time formats supported:
+#   - Numeric: treated as minutes (e.g., 1.5 = 1.5 minutes)
+#   - String "M:SS": minutes:seconds (e.g., "1:30" = 1 minute 30 seconds)
+
+test_settings:
+  # Default Excel output file for all tests
+  default_excel_file: "power_measurements.xlsx"
+  # Off
+  test_excel_header_1: "Off"
+  test_start_time_1: 0        # Start immediately
+  test_duration_1: "5:00"     # Run for 5 minutes
+  after_test_pause_1: true
+  # Short Idle
+  test_excel_header_2: "Short Idle"
+  test_start_time_2: "10:00"   # Start at 10 minutes
+  test_duration_2: "5:00"     # Run for 5 minutes
+  after_test_pause_2: true
+  # Long Idle
+  test_excel_header_3: "Long Idle"
+  test_start_time_3: "23:00"   # Start at 23 minutes
+  test_duration_3: "5:00"     # Run for 5 minutes
+  after_test_pause_3: false
+  # Sleep
+  test_excel_header_4: "Sleep"
+  test_start_time_4: "35:45"   # Start at 35 minutes 45 seconds
+  test_duration_4: "5:00"      # Run for 5 minutes
+  after_test_pause_4: false
+
+# Serial Command Settings
+command_setttings:
+  command: b'?MPOW'
+
+# Serial Connection Settings Configuartion
+connection_settings:
+  port: "COM7" 
+  baudrate: 38400
+  bytesize: 8
+  stopbits: 1
+  timeout: 1
+
+# Logging Settings
+log_settings:
+  log_dir: "./logs"
+  log_level: "DEBUG"
