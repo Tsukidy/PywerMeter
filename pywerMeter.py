@@ -1,25 +1,65 @@
 from pywerHelper import serialComm, excelHelper, dataCollector, menuHelper
 import time, logging, os, yaml
 import sys
+from tkinter import filedialog
+import tkinter as tk
 
-# Check config file for settings
-configFilePath = "./config.yaml"
-try:
-    with open(configFilePath, 'r') as file:
-        config = yaml.safe_load(file)
-except FileNotFoundError:
-    print(f"ERROR: Configuration file not found: {configFilePath}")
-    print("Please ensure config.yaml exists in the application directory.")
-    sys.exit(1)
-except yaml.YAMLError as e:
-    print(f"ERROR: Invalid YAML syntax in configuration file: {e}")
-    sys.exit(1)
-except PermissionError:
-    print(f"ERROR: Permission denied reading configuration file: {configFilePath}")
-    sys.exit(1)
-except Exception as e:
-    print(f"ERROR: Unexpected error loading configuration: {e}")
-    sys.exit(1)
+# Store the script's directory for config loading
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Config will be loaded from script directory
+config = None
+
+def select_working_folder():
+    """Prompt user to select a working folder using Windows file explorer."""
+    print("Please select a working folder for pywerMeter...")
+    
+    # Create a root window and hide it
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    
+    # Show folder selection dialog
+    folder_selected = filedialog.askdirectory(
+        title="Select Working Folder for pywerMeter",
+        initialdir=os.getcwd()
+    )
+    
+    # Destroy the root window
+    root.destroy()
+    
+    if not folder_selected:
+        print("No folder selected. Exiting...")
+        sys.exit(0)
+    
+    # Change to the selected directory
+    os.chdir(folder_selected)
+    print(f"Working folder set to: {os.path.abspath(folder_selected)}")
+    print()
+    
+    return folder_selected
+
+def load_config():
+    """Load configuration from config.yaml in the script's directory."""
+    global config
+    
+    configFilePath = os.path.join(SCRIPT_DIR, "config.yaml")
+    try:
+        with open(configFilePath, 'r') as file:
+            config = yaml.safe_load(file)
+    except FileNotFoundError:
+        print(f"ERROR: Configuration file not found: {configFilePath}")
+        print("Please ensure config.yaml exists in the script directory.")
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"ERROR: Invalid YAML syntax in configuration file: {e}")
+        sys.exit(1)
+    except PermissionError:
+        print(f"ERROR: Permission denied reading configuration file: {configFilePath}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: Unexpected error loading configuration: {e}")
+        sys.exit(1)
 
 def run_power_tests():
     """Execute the main power measurement test sequence."""
@@ -307,10 +347,18 @@ def loggingSetup():
 # Main execution block
 if __name__ == "__main__":
     try:
-        # Setup logging
+        # Load configuration from script directory first
+        load_config()
+        
+        # Select working folder for data storage
+        working_folder = select_working_folder()
+        
+        # Setup logging (now in the working folder)
         logger = loggingSetup()
         logger.info("="*60)
         logger.info("Starting pywerMeter application")
+        logger.info(f"Script directory: {SCRIPT_DIR}")
+        logger.info(f"Working folder: {working_folder}")
         
         # Display ASCII art
         menuHelper.display_ascii_art()
