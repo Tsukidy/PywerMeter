@@ -401,6 +401,13 @@ class PowerCalc:
             
             from openpyxl.utils import get_column_letter
             
+            # Check if averages already exist
+            if self.ws['A1'].value == 'Averages':
+                print("Averages already exist in this file. Skipping.")
+                logger.warning("Averages already exist, skipping add_averages operation")
+                self.wb.close()
+                return True
+            
             # Insert 2 new rows at the top
             self.ws.insert_rows(1, 2)
             logger.debug("Inserted 2 rows at the top for averages")
@@ -509,10 +516,18 @@ class PowerCalc:
                 logger.error("Attempted to add Total Annual Power without averages at top")
                 return False
             
-            # Place Total Annual Power in the column right after the last data column
+            # Check if Total Annual Power already exists
             num_cols = len(self.df.columns)
             tap_col_idx = num_cols + 1
             tap_col_letter = get_column_letter(tap_col_idx)
+            
+            if self.ws[f'{tap_col_letter}1'].value == 'Total Annual Power':
+                print("Total Annual Power already exists in this file. Skipping.")
+                logger.warning("Total Annual Power already exists, skipping operation")
+                self.wb.close()
+                return True
+            
+            # Place Total Annual Power in the column right after the last data column
             
             # Create border style
             border_style = Border(
