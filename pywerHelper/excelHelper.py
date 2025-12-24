@@ -516,18 +516,26 @@ class PowerCalc:
                 logger.error("Attempted to add Total Annual Power without averages at top")
                 return False
             
-            # Check if Total Annual Power already exists
-            num_cols = len(self.df.columns)
-            tap_col_idx = num_cols + 1
-            tap_col_letter = get_column_letter(tap_col_idx)
+            # Check if Total Annual Power already exists by scanning row 1
+            tap_col_idx = None
+            tap_col_letter = None
+            max_col = self.ws.max_column
             
-            if self.ws[f'{tap_col_letter}1'].value == 'Total Annual Power':
-                print("Total Annual Power already exists in this file. Skipping.")
-                logger.warning("Total Annual Power already exists, skipping operation")
-                self.wb.close()
-                return True
+            for col_idx in range(1, max_col + 1):
+                col_letter = get_column_letter(col_idx)
+                if self.ws[f'{col_letter}1'].value == 'Total Annual Power':
+                    tap_col_idx = col_idx
+                    tap_col_letter = col_letter
+                    logger.info(f"Found existing Total Annual Power at column {col_letter}, will overwrite")
+                    print("Total Annual Power already exists, updating values...")
+                    break
             
-            # Place Total Annual Power in the column right after the last data column
+            # If not found, place it in the column right after the last data column
+            if tap_col_idx is None:
+                num_cols = len(self.df.columns)
+                tap_col_idx = num_cols + 1
+                tap_col_letter = get_column_letter(tap_col_idx)
+                logger.info(f"Adding new Total Annual Power column at {tap_col_letter}")
             
             # Create border style
             border_style = Border(
@@ -556,7 +564,7 @@ class PowerCalc:
             
             # Add the formula in row 2 (where the averages are)
             avg_row = 2
-            formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{shortidle_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{sleep_letter}{avg_row}*0.3)'
+            formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{sleep_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{shortidle_letter}{avg_row}*0.3)'
             self.ws[f'{tap_col_letter}{avg_row}'] = formula
             self.ws[f'{tap_col_letter}{avg_row}'].border = border_style
             logger.debug(f"Added Total Annual Power formula: {formula}")
