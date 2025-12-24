@@ -404,7 +404,7 @@ if __name__ == "__main__":
                     logger.info("User selected: Rerun Specific Test")
                     rerun_specific_test()
                     
-                elif choice == '4':
+                elif choice == 'x':
                     # Exit
                     logger.info("User selected: Exit")
                     print("\nExiting pywerMeter. Goodbye!")
