@@ -375,7 +375,12 @@ class PowerCalc:
     
     def add_averages(self):
         """
-        Add average calculations to the bottom of each column in the Excel file.
+        Add average calculations to the top of each column in the Excel file with a spanning header.
+        Restructures the sheet so that:
+        Row 1: "Averages" header (spanning all columns)
+        Row 2: Average formulas
+        Row 3: Column headers
+        Row 4+: Data
         
         Returns:
             bool: True if successful, False otherwise
@@ -385,21 +390,34 @@ class PowerCalc:
             if not self._load_workbook():
                 return False
             
-            # Add average formula for each column
             from openpyxl.utils import get_column_letter
             
+            # Insert 2 new rows at the top
+            self.ws.insert_rows(1, 2)
+            logger.debug("Inserted 2 rows at the top for averages")
+            
+            # Add "Averages" header in row 1, column A, and merge across all columns
+            num_cols = len(self.df.columns)
+            self.ws['A1'] = 'Averages'
+            if num_cols > 1:
+                end_col_letter = get_column_letter(num_cols)
+                self.ws.merge_cells(f'A1:{end_col_letter}1')
+            
+            # Style the Averages header (optional: make it bold and centered)
+            from openpyxl.styles import Font, Alignment
+            self.ws['A1'].font = Font(bold=True)
+            self.ws['A1'].alignment = Alignment(horizontal='center')
+            
+            # Add average formulas in row 2
+            # Data now starts at row 4 (was row 2), goes to last_data_row + 2
             for col_idx, col_name in enumerate(self.df.columns, start=1):
                 try:
-                    # Get column letter
                     col_letter = get_column_letter(col_idx)
                     
-                    # Add "Average" label in first column of the average row
-                    if col_idx == 1:
-                        self.ws[f'A{self.last_data_row + 2}'] = 'Average'
-                    
-                    # Add AVERAGE formula
-                    formula_cell = self.ws[f'{col_letter}{self.last_data_row + 2}']
-                    formula_cell.value = f'=AVERAGE({col_letter}2:{col_letter}{self.last_data_row})'
+                    # Add AVERAGE formula in row 2
+                    # Data range is now from row 4 to last_data_row + 2
+                    formula_cell = self.ws[f'{col_letter}2']
+                    formula_cell.value = f'=AVERAGE({col_letter}4:{col_letter}{self.last_data_row + 2})'
                     logger.debug(f"Added average formula for column {col_letter}")
                 except Exception as e:
                     logger.error(f"Error adding average for column {col_idx}: {e}", exc_info=True)
@@ -460,28 +478,34 @@ class PowerCalc:
             # Find the sleep column position
             sleep_col_idx = column_positions['sleep']
             
-            # Insert a new column to the left of sleep
+            # Insert a new column to the right of sleep (after sleep)
             try:
-                self.ws.insert_cols(sleep_col_idx)
-                logger.debug(f"Inserted new column at position {sleep_col_idx}")
+                self.ws.insert_cols(sleep_col_idx + 1)
+                logger.debug(f"Inserted new column at position {sleep_col_idx + 1}")
             except Exception as e:
                 logger.error(f"Error inserting column: {e}", exc_info=True)
                 print(f"ERROR: Failed to insert column: {e}")
                 return False
             
             # Add header for the new column
-            new_col_letter = get_column_letter(sleep_col_idx)
+            new_col_letter = get_column_letter(sleep_col_idx + 1)
             self.ws[f'{new_col_letter}1'] = 'Total Annual Power'
             
-            # Get column letters for the formula (adjust for insertion)
+            # Get column letters for the formula (no adjustment needed since we inserted after sleep)
             off_letter = get_column_letter(column_positions['off'])
-            shortidle_letter = get_column_letter(column_positions['shortidle'] if column_positions['shortidle'] < sleep_col_idx else column_positions['shortidle'] + 1)
-            longidle_letter = get_column_letter(column_positions['longidle'] if column_positions['longidle'] < sleep_col_idx else column_positions['longidle'] + 1)
-            sleep_letter = get_column_letter(sleep_col_idx + 1)  # Sleep moved one column to the right
+            shortidle_letter = get_column_letter(column_positions['shortidle'])
+            longidle_letter = get_column_letter(column_positions['longidle'])
+            sleep_letter = get_column_letter(column_positions['sleep'])
             
-            # Add the formula in the Average row
-            # The Average row is at last_data_row + 2
-            avg_row = self.last_data_row + 2
+            # Add the formula in the Average row (row 2 if averages exist, otherwise last_data_row + 2)
+            # Check if averages are at the top (row 1 has "Averages" header)
+            if self.ws['A1'].value == 'Averages':
+                avg_row = 2
+                logger.debug("Using row 2 for Total Annual Power (averages at top)")
+            else:
+                avg_row = self.last_data_row + 2
+                logger.debug(f"Using row {avg_row} for Total Annual Power (averages at bottom)")
+            
             formula = f'=8760/1000*({off_letter}{avg_row}*0.15+{shortidle_letter}{avg_row}*0.45+{longidle_letter}{avg_row}*0.1+{sleep_letter}{avg_row}*0.3)'
             self.ws[f'{new_col_letter}{avg_row}'] = formula
             logger.debug(f"Added Total Annual Power formula: {formula}")
