@@ -66,20 +66,52 @@ def run_power_tests():
     # Get test settings from config
     test_settings = config.get('test_settings', {})
     
-    # Get default Excel filename
-    default_excel_file = test_settings.get('default_excel_file', 'power_measurements.xlsx')
+    # Get default Excel filename using current folder name
+    folder_name = os.path.basename(os.getcwd())
+    default_excel_file = f"{folder_name}.xlsx"
+    logger.info(f"Using Excel filename based on folder: {default_excel_file}")
     
     # Check if Excel file already exists
+    tests_to_skip = set()
     if os.path.exists(default_excel_file):
-        print(f"\n⚠️  Warning: Excel file '{default_excel_file}' already exists!")
+        print(f"\n⚠️  Excel file '{default_excel_file}' already exists!")
         logger.warning(f"Excel file already exists: {default_excel_file}")
         
+        # Check which tests are already in the file
+        try:
+            completed_tests = excelHelper.get_completed_tests(default_excel_file, "Power Data")
+            if completed_tests:
+                print(f"Found {len(completed_tests)} completed test(s) in file: {', '.join(completed_tests)}")
+                logger.info(f"Found completed tests: {completed_tests}")
+        except Exception as e:
+            print(f"Warning: Could not read existing file: {e}")
+            logger.warning(f"Could not read existing file to check completed tests: {e}")
+            completed_tests = []
+        
+        print("\nOptions:")
+        print("[1] Continue from where testing left off (skip completed tests)")
+        print("[2] Overwrite file and start fresh")
+        print("[3] Create new file with timestamp")
+        print("[4] Cancel")
+        
         while True:
-            response = input("Do you want to overwrite it? (y/n): ").strip().lower()
-            if response == 'y':
+            response = input("\nSelect option: ").strip()
+            
+            if response == '1':
+                # Continue from where left off
+                if completed_tests:
+                    tests_to_skip = set(completed_tests)
+                    print(f"\nContinuing with remaining tests. Will skip: {', '.join(completed_tests)}\n")
+                    logger.info(f"Continuing from existing file. Skipping tests: {tests_to_skip}")
+                else:
+                    print("\nNo completed tests found. Running all tests.\n")
+                    logger.info("No completed tests found in existing file. Running all tests.")
+                break
+                
+            elif response == '2':
+                # Overwrite file
                 print(f"File will be overwritten.\n")
                 logger.info("User chose to overwrite existing Excel file")
-                # Delete the existing file
                 try:
                     os.remove(default_excel_file)
                     logger.info(f"Deleted existing file: {default_excel_file}")
@@ -92,7 +124,8 @@ def run_power_tests():
                     logger.error(f"OS error deleting file: {default_excel_file}", exc_info=True)
                     return
                 break
-            elif response == 'n':
+                
+            elif response == '3':
                 # Generate new filename with timestamp
                 from datetime import datetime
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -100,10 +133,16 @@ def run_power_tests():
                 ext = os.path.splitext(default_excel_file)[1]
                 default_excel_file = f"{base_name}_{timestamp}{ext}"
                 print(f"Using new filename: {default_excel_file}\n")
-                logger.info(f"User chose not to overwrite. Using new filename: {default_excel_file}")
+                logger.info(f"User chose new filename: {default_excel_file}")
                 break
+                
+            elif response == '4':
+                print("Cancelled.")
+                logger.info("User cancelled test run")
+                return
+                
             else:
-                print("Invalid input. Please enter 'y' or 'n'.")
+                print("Invalid option. Please select 1-4.")
     
     # Find all test configurations by looking for test_excel_header_x keys
     test_numbers = []
@@ -136,6 +175,12 @@ def run_power_tests():
         duration = parse_time_value(duration_raw) if duration_raw is not None else None
         
         if test_header and start_time is not None and duration:
+            # Check if this test should be skipped
+            if test_header in tests_to_skip:
+                print(f"\n=== Skipping Test {test_num}: {test_header} (already completed) ===\n")
+                logger.info(f"Skipping already completed test: {test_header}")
+                continue
+            
             # Wait until the global timer reaches the start time
             while elapsed_time < start_time:
                 elapsed_time = (time.time() - global_start_time) / 60
@@ -154,7 +199,7 @@ def run_power_tests():
             if samples:
                 print(f"Writing test data to Excel...")
                 logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
-                excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file)
+                excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time=start_time)
             else:
                 print(f"No samples collected for {test_header}")
                 logger.warning(f"No samples collected for test: {test_header}")
@@ -234,8 +279,10 @@ def rerun_specific_test():
     
     # Get test configuration
     test_header = test_settings.get(f'test_excel_header_{selected_num}')
+    start_time_raw = test_settings.get(f'test_start_time_{selected_num}')
     duration_raw = test_settings.get(f'test_duration_{selected_num}')
     
+    start_time = parse_time_value(start_time_raw) if start_time_raw is not None else 0
     duration = parse_time_value(duration_raw) if duration_raw is not None else None
     
     if not duration:
@@ -243,8 +290,9 @@ def rerun_specific_test():
         logger.error(f"No duration configured for test {selected_num}")
         return
     
-    # Get Excel filename
-    default_file = test_settings.get('default_excel_file', 'power_measurements.xlsx')
+    # Get Excel filename using current folder name
+    folder_name = os.path.basename(os.getcwd())
+    default_file = f"{folder_name}.xlsx"
     filename = input(f"\nEnter Excel filename (press Enter for '{default_file}'): ").strip()
     if not filename:
         filename = default_file
@@ -268,7 +316,7 @@ def rerun_specific_test():
     if samples:
         print(f"\nWriting test data to Excel...")
         logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
-        if excelHelper.write_test_row_to_excel(test_header, samples, filename):
+        if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time=start_time):
             print(f"✓ Test data written successfully! Column '{test_header}' updated.")
         else:
             print(f"✗ Failed to write test data.")
