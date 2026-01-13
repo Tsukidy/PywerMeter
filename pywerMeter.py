@@ -245,7 +245,7 @@ def run_power_tests():
     logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
     
     # Ask if user wants to add power calculations
-    print("⚠️  IMPORTANT: If you have the Excel file open, please close it now!")
+    print("⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
     print("\nWould you like to add power calculations to the Excel file?")
     print("[1] Add Averages Only")
     print("[2] Add Total Annual Power Only")
@@ -382,7 +382,7 @@ def rerun_specific_test():
             print("Cancelled.")
             return
     else:
-        print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it now!")
+        print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
     
     # Run the test
     print(f"\n=== Running Test: {test_header} ===")
@@ -532,7 +532,7 @@ if __name__ == "__main__":
                     # Add power calculations to existing Excel file
                     logger.info("User selected: Add Power Calculations")
                     print("\n=== Add Power Calculations ===")
-                    print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!\n")
+                    print("⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!\n")
                     
                     # Get filename from user using folder name
                     folder_name = os.path.basename(os.getcwd())
