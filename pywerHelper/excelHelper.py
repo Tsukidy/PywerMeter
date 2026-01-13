@@ -810,6 +810,19 @@ class PowerCalc:
                 data_start_row = 6
                 data_offset = 4  # Data rows moved down by 4
                 logger.debug("Start times detected, data now starts at row 6")
+                
+                # Update "Test Start Times" merge cell to span all columns and apply borders
+                if num_cols > 1:
+                    # First unmerge if already merged
+                    if self.ws['A3'].coordinate in self.ws.merged_cells:
+                        self.ws.unmerge_cells(list(self.ws.merged_cells.ranges)[0].coord)
+                    end_col_letter = get_column_letter(num_cols)
+                    self.ws.merge_cells(f'A3:{end_col_letter}3')
+                    # Apply borders to all cells in the merged range for row 3 (Test Start Times)
+                    for col_idx in range(1, num_cols + 1):
+                        col_letter = get_column_letter(col_idx)
+                        self.ws[f'{col_letter}3'].border = border_style
+                    logger.debug(f"Updated Test Start Times merge to span A3:{end_col_letter}3")
             else:
                 # Structure now: Row 1=Averages, Row 2=formulas, Row 3=headers (was row 1), Row 4+=data (was row 2+)
                 data_start_row = 4
@@ -825,6 +838,19 @@ class PowerCalc:
                     formula_cell = self.ws[f'{col_letter}2']
                     formula_cell.value = f'=AVERAGE({col_letter}{data_start_row}:{col_letter}{self.last_data_row + data_offset})'
                     logger.debug(f"Added average formula for column {col_letter}: =AVERAGE({col_letter}{data_start_row}:{col_letter}{self.last_data_row + data_offset})")
+                    
+                    # Ensure column headers maintain their formatting (bold, centered, bordered)
+                    if has_start_times:
+                        header_row = 5
+                    else:
+                        header_row = 3
+                    
+                    header_cell = self.ws[f'{col_letter}{header_row}']
+                    if header_cell.value:  # Only format if there's a value
+                        header_cell.font = Font(bold=True)
+                        header_cell.alignment = Alignment(horizontal='center')
+                        header_cell.border = border_style
+                        
                 except Exception as e:
                     logger.error(f"Error adding average for column {col_idx}: {e}", exc_info=True)
                     print(f"WARNING: Failed to add average for column {col_name}")
