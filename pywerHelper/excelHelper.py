@@ -239,7 +239,7 @@ def import_multiple_files(data_files, workbook_filename="power_data.xlsx"):
     return success_count
 
 
-def write_test_row_to_excel(test_header, samples, workbook_filename="power_measurements.xlsx", sheet_name="Power Data", start_time=None, start_time_str=None):
+def write_test_row_to_excel(test_header, samples, workbook_filename="power_measurements.xlsx", sheet_name="Power Data", start_time=None, start_time_str=None, replace_mode=True):
     """
     Write a test's data as a new column in an Excel file.
     Handles both regular files and files with averages structure.
@@ -251,6 +251,7 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
         sheet_name (str): Name for the sheet
         start_time (float): Optional start time in minutes from global timer start (deprecated, use start_time_str)
         start_time_str (str): Optional formatted start time string (e.g., "14:30:15 / 5.5 min")
+        replace_mode (bool): If True, replace existing column data. If False, append to existing data.
         
     Returns:
         bool: True if successful, False otherwise
@@ -351,13 +352,24 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                         from openpyxl.utils import get_column_letter
                         col_letter = get_column_letter(col_idx)
                         
-                        # Clear existing data in this column (from data start row onwards)
-                        max_row = ws.max_row
-                        for row_idx in range(data_start_row, max_row + 1):
-                            ws[f'{col_letter}{row_idx}'].value = None
+                        if replace_mode:
+                            # Clear existing data in this column (from data start row onwards)
+                            max_row = ws.max_row
+                            for row_idx in range(data_start_row, max_row + 1):
+                                ws[f'{col_letter}{row_idx}'].value = None
+                            
+                            # Write new data starting at data_start_row
+                            write_start_row = data_start_row
+                        else:
+                            # Append mode: find the last non-empty row in this column
+                            write_start_row = data_start_row
+                            for row_idx in range(data_start_row, ws.max_row + 1):
+                                if ws[f'{col_letter}{row_idx}'].value is not None:
+                                    write_start_row = row_idx + 1
+                            logger.debug(f"Appending data starting at row {write_start_row}")
                         
-                        # Write new data starting at data_start_row
-                        for i, value in enumerate(numeric_samples, start=data_start_row):
+                        # Write data
+                        for i, value in enumerate(numeric_samples, start=write_start_row):
                             ws[f'{col_letter}{i}'].value = value
                         
                         # Update start time if provided and row exists
@@ -514,12 +526,21 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     from openpyxl.utils import get_column_letter
                     col_letter = get_column_letter(col_idx)
                 
-                # Clear and write data
-                max_row = ws.max_row
-                for row_idx in range(4, max_row + 1):
-                    ws[f'{col_letter}{row_idx}'].value = None
+                # Clear and write data (or append)
+                if replace_mode:
+                    max_row = ws.max_row
+                    for row_idx in range(4, max_row + 1):
+                        ws[f'{col_letter}{row_idx}'].value = None
+                    write_start_row = 4
+                else:
+                    # Append mode: find the last non-empty row in this column
+                    write_start_row = 4
+                    for row_idx in range(4, ws.max_row + 1):
+                        if ws[f'{col_letter}{row_idx}'].value is not None:
+                            write_start_row = row_idx + 1
+                    logger.debug(f"Appending data starting at row {write_start_row}")
                 
-                for i, value in enumerate(numeric_samples, start=4):
+                for i, value in enumerate(numeric_samples, start=write_start_row):
                     ws[f'{col_letter}{i}'].value = value
                 
                 # Add start time if provided

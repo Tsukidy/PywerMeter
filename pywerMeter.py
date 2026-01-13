@@ -373,9 +373,31 @@ def rerun_specific_test():
     if not filename:
         filename = default_file
     
-    # Confirm before overwriting
+    # Ask user if they want to replace or append data
+    replace_mode = True  # Default
     if os.path.exists(filename):
-        print(f"\n⚠️  This will overwrite the existing '{test_header}' column in '{filename}'")
+        print(f"\n⚠️  Excel file '{filename}' exists.")
+        print("\nData Mode Options:")
+        print("[1] Replace - Overwrite the existing column data")
+        print("[2] Append - Add new data below existing column data")
+        print("[3] Cancel")
+        
+        while True:
+            mode_choice = input("\nSelect data mode: ").strip()
+            if mode_choice == '1':
+                replace_mode = True
+                print(f"\n⚠️  This will replace the existing '{test_header}' column data in '{filename}'")
+                break
+            elif mode_choice == '2':
+                replace_mode = False
+                print(f"\n⚠️  This will append new data to the existing '{test_header}' column in '{filename}'")
+                break
+            elif mode_choice == '3':
+                print("Cancelled.")
+                return
+            else:
+                print("Invalid option. Please select 1, 2, or 3.")
+        
         print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!")
         confirm = input("\nContinue? (y/n): ").strip().lower()
         if confirm != 'y':
@@ -383,6 +405,7 @@ def rerun_specific_test():
             return
     else:
         print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
+        replace_mode = True  # Default to replace for new files
     
     # Run the test
     print(f"\n=== Running Test: {test_header} ===")
@@ -403,12 +426,13 @@ def rerun_specific_test():
     
     samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=None, test_header=test_header)
     
-    # Write to Excel (will overwrite existing column)
+    # Write to Excel (will replace or append based on user choice)
     if samples:
+        mode_text = "replaced" if replace_mode else "appended"
         print(f"\nWriting test data to Excel...")
-        logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
-        if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time_str=start_time_str):
-            print(f"✓ Test data written successfully! Column '{test_header}' updated.")
+        logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header} (mode: {mode_text})")
+        if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time_str=start_time_str, replace_mode=replace_mode):
+            print(f"✓ Test data written successfully! Column '{test_header}' {mode_text}.")
         else:
             print(f"✗ Failed to write test data.")
     else:
