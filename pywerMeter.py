@@ -245,7 +245,8 @@ def run_power_tests():
     logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
     
     # Ask if user wants to add power calculations
-    print("Would you like to add power calculations to the Excel file?")
+    print("⚠️  IMPORTANT: If you have the Excel file open, please close it now!")
+    print("\nWould you like to add power calculations to the Excel file?")
     print("[1] Add Averages Only")
     print("[2] Add Total Annual Power Only")
     print("[3] Add Both (Averages + Total Annual Power)")
@@ -375,10 +376,13 @@ def rerun_specific_test():
     # Confirm before overwriting
     if os.path.exists(filename):
         print(f"\n⚠️  This will overwrite the existing '{test_header}' column in '{filename}'")
-        confirm = input("Continue? (y/n): ").strip().lower()
+        print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!")
+        confirm = input("\nContinue? (y/n): ").strip().lower()
         if confirm != 'y':
             print("Cancelled.")
             return
+    else:
+        print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it now!")
     
     # Run the test
     print(f"\n=== Running Test: {test_header} ===")
@@ -528,6 +532,7 @@ if __name__ == "__main__":
                     # Add power calculations to existing Excel file
                     logger.info("User selected: Add Power Calculations")
                     print("\n=== Add Power Calculations ===")
+                    print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!\n")
                     
                     # Get filename from user using folder name
                     folder_name = os.path.basename(os.getcwd())
