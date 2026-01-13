@@ -243,6 +243,64 @@ def run_power_tests():
     print(f"\n========== All Tests Complete ==========")
     print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
     logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
+    
+    # Ask if user wants to add power calculations
+    print("Would you like to add power calculations to the Excel file?")
+    print("[1] Add Averages Only")
+    print("[2] Add Total Annual Power Only")
+    print("[3] Add Both (Averages + Total Annual Power)")
+    print("[4] Skip - No calculations")
+    
+    while True:
+        calc_choice = input("\nSelect option: ").strip()
+        
+        if calc_choice in ['1', '2', '3', '4']:
+            break
+        else:
+            print("Invalid option. Please select 1-4.")
+    
+    if calc_choice != '4':
+        try:
+            calc = excelHelper.PowerCalc(default_excel_file, "Power Data")
+            
+            if calc_choice == '1':
+                print("\nAdding averages...")
+                logger.info(f"Adding averages to {default_excel_file}")
+                if calc.add_averages():
+                    print("✓ Averages added successfully!")
+                else:
+                    print("✗ Failed to add averages.")
+                    
+            elif calc_choice == '2':
+                print("\nAdding Total Annual Power...")
+                logger.info(f"Adding Total Annual Power to {default_excel_file}")
+                if calc.totalAnnualPower():
+                    print("✓ Total Annual Power added successfully!")
+                else:
+                    print("✗ Failed to add Total Annual Power.")
+                    
+            elif calc_choice == '3':
+                print("\nAdding averages...")
+                logger.info(f"Adding averages and Total Annual Power to {default_excel_file}")
+                if calc.add_averages():
+                    print("✓ Averages added successfully!")
+                    # Reload for totalAnnualPower
+                    calc2 = excelHelper.PowerCalc(default_excel_file, "Power Data")
+                    print("Adding Total Annual Power...")
+                    if calc2.totalAnnualPower():
+                        print("✓ Total Annual Power added successfully!")
+                    else:
+                        print("✗ Failed to add Total Annual Power.")
+                else:
+                    print("✗ Failed to add averages.")
+        except Exception as e:
+            print(f"ERROR: Failed to perform calculations: {e}")
+            logger.error(f"Failed to perform Excel calculations: {e}", exc_info=True)
+    else:
+        print("\nSkipping power calculations.")
+        logger.info("User skipped power calculations")
+    
+    print()
 
 def rerun_specific_test():
     """Allow user to select and rerun a specific test, overwriting its data in Excel."""
