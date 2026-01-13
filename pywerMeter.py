@@ -379,8 +379,16 @@ def loggingSetup():
                 print(f"ERROR: Failed to create log file: {e}")
                 sys.exit(1)
         
-        logging.basicConfig(filename=fullLogPath, encoding='utf-8', level=logging.DEBUG, 
-                          format='%(asctime)s - %(levelname)s - %(message)s')
+        # Create file handler and formatter
+        file_handler = logging.FileHandler(fullLogPath, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        
+        # Add handler to logger (avoid duplicates)
+        if not logger.handlers:
+            logger.addHandler(file_handler)
+        
         logger.info("Logging system initialized successfully")
         return logger
     except KeyError as e:

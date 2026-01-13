@@ -415,6 +415,9 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                 wb = openpyxl.load_workbook(workbook_filename)
                 ws = wb[sheet_name]
                 
+                # Get number of columns for later use
+                num_cols = len(existing_df.columns)
+                
                 if ws['A1'].value != 'Test Start Times':
                     logger.info("Converting plain file to start times structure")
                     # Insert 2 rows at top for start times
@@ -423,8 +426,6 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     # Add "Test Start Times" header in row 1 and merge
                     from openpyxl.utils import get_column_letter
                     from openpyxl.styles import Font, Alignment, Border, Side
-                    
-                    num_cols = len(existing_df.columns)
                     ws['A1'] = 'Test Start Times'
                     if num_cols > 1:
                         end_col_letter = get_column_letter(num_cols)
