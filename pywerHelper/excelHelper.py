@@ -239,7 +239,7 @@ def import_multiple_files(data_files, workbook_filename="power_data.xlsx"):
     return success_count
 
 
-def write_test_row_to_excel(test_header, samples, workbook_filename="power_measurements.xlsx", sheet_name="Power Data", start_time=None):
+def write_test_row_to_excel(test_header, samples, workbook_filename="power_measurements.xlsx", sheet_name="Power Data", start_time=None, start_time_str=None):
     """
     Write a test's data as a new column in an Excel file.
     Handles both regular files and files with averages structure.
@@ -249,7 +249,8 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
         samples (list): List of sample values for this test
         workbook_filename (str): Path to the Excel workbook
         sheet_name (str): Name for the sheet
-        start_time (float): Optional start time in minutes from global timer start
+        start_time (float): Optional start time in minutes from global timer start (deprecated, use start_time_str)
+        start_time_str (str): Optional formatted start time string (e.g., "14:30:15 / 5.5 min")
         
     Returns:
         bool: True if successful, False otherwise
@@ -329,10 +330,20 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                         if col_idx is None:
                             col_idx = len(headers) + 1
                             from openpyxl.utils import get_column_letter
+                            from openpyxl.styles import Font, Alignment, Border, Side
                             col_letter = get_column_letter(col_idx)
                             
-                            # Add header in the appropriate row
-                            ws[f'{col_letter}{header_row}'] = test_header
+                            # Add header in the appropriate row with formatting
+                            header_cell = ws[f'{col_letter}{header_row}']
+                            header_cell.value = test_header
+                            header_cell.font = Font(bold=True)
+                            header_cell.alignment = Alignment(horizontal='center')
+                            header_cell.border = Border(
+                                left=Side(style='thin', color='000000'),
+                                right=Side(style='thin', color='000000'),
+                                top=Side(style='thin', color='000000'),
+                                bottom=Side(style='thin', color='000000')
+                            )
                             logger.debug(f"Added new column '{test_header}' at position {col_idx}")
                         else:
                             logger.debug(f"Overwriting existing column '{test_header}' at position {col_idx}")
@@ -350,9 +361,13 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                             ws[f'{col_letter}{i}'].value = value
                         
                         # Update start time if provided and row exists
-                        if start_time is not None and start_time_row is not None:
-                            ws[f'{col_letter}{start_time_row}'].value = start_time
-                            logger.debug(f"Added start time {start_time} min to row {start_time_row}")
+                        if start_time_row is not None:
+                            if start_time_str is not None:
+                                ws[f'{col_letter}{start_time_row}'].value = start_time_str
+                                logger.debug(f"Added start time '{start_time_str}' to row {start_time_row}")
+                            elif start_time is not None:
+                                ws[f'{col_letter}{start_time_row}'].value = start_time
+                                logger.debug(f"Added start time {start_time} min to row {start_time_row}")
                         
                         # Update average formula if averages exist
                         if has_averages:
@@ -467,8 +482,20 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     # New column
                     col_idx = len(headers) + 1
                     from openpyxl.utils import get_column_letter
+                    from openpyxl.styles import Font, Alignment, Border, Side
                     col_letter = get_column_letter(col_idx)
-                    ws[f'{col_letter}3'] = test_header
+                    
+                    # Add header with formatting
+                    header_cell = ws[f'{col_letter}3']
+                    header_cell.value = test_header
+                    header_cell.font = Font(bold=True)
+                    header_cell.alignment = Alignment(horizontal='center')
+                    header_cell.border = Border(
+                        left=Side(style='thin', color='000000'),
+                        right=Side(style='thin', color='000000'),
+                        top=Side(style='thin', color='000000'),
+                        bottom=Side(style='thin', color='000000')
+                    )
                     
                     # Extend merge if needed
                     if ws['A1'].value == 'Test Start Times' and num_cols > 1:
@@ -496,7 +523,10 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     ws[f'{col_letter}{i}'].value = value
                 
                 # Add start time if provided
-                if start_time is not None:
+                if start_time_str is not None:
+                    ws[f'{col_letter}2'].value = start_time_str
+                    logger.debug(f"Added start time '{start_time_str}' to column {col_letter}")
+                elif start_time is not None:
                     ws[f'{col_letter}2'].value = start_time
                     logger.debug(f"Added start time {start_time} min to column {col_letter}")
                 
@@ -547,11 +577,17 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
             ws['A1'].border = border_style
             
             # Row 2: Start time value
-            if start_time is not None:
+            if start_time_str is not None:
+                ws['A2'] = start_time_str
+            elif start_time is not None:
                 ws['A2'] = start_time
             
-            # Row 3: Column header
-            ws['A3'] = test_header
+            # Row 3: Column header with formatting
+            header_cell = ws['A3']
+            header_cell.value = test_header
+            header_cell.font = Font(bold=True)
+            header_cell.alignment = Alignment(horizontal='center')
+            header_cell.border = border_style
             
             # Row 4+: Data
             for i, value in enumerate(numeric_samples, start=4):

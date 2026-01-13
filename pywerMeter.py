@@ -189,8 +189,25 @@ def run_power_tests():
                     print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for Test {test_num} (starts at {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
                     time.sleep(1)
             
+            # Update elapsed time one final time before capturing start time
+            elapsed_time = (time.time() - global_start_time) / 60
+            
             print(f"\n\n=== Starting Test {test_num}: {test_header} at {elapsed_time:.2f} minutes ===")
             logger.info(f"Starting Test {test_num}: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
+            
+            # Capture actual start time with both EST clock time and global timer
+            from datetime import datetime
+            import pytz
+            try:
+                est = pytz.timezone('US/Eastern')
+                actual_start_time = datetime.now(est)
+                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
+            except:
+                # Fallback if pytz not available
+                actual_start_time = datetime.now()
+                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
+            
+            logger.info(f"Test start time recorded as: {start_time_str}")
             
             # Run test and collect samples
             samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
@@ -199,7 +216,7 @@ def run_power_tests():
             if samples:
                 print(f"Writing test data to Excel...")
                 logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
-                excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time=start_time)
+                excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time_str=start_time_str)
             else:
                 print(f"No samples collected for {test_header}")
                 logger.warning(f"No samples collected for test: {test_header}")
@@ -310,13 +327,25 @@ def rerun_specific_test():
     print(f"Duration: {duration:.2f} minutes")
     logger.info(f"Rerunning test: {test_header} for {duration} minutes")
     
+    # Capture start time
+    from datetime import datetime
+    import pytz
+    try:
+        est = pytz.timezone('US/Eastern')
+        actual_start_time = datetime.now(est)
+        start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
+    except:
+        # Fallback if pytz not available
+        actual_start_time = datetime.now()
+        start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
+    
     samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=None, test_header=test_header)
     
     # Write to Excel (will overwrite existing column)
     if samples:
         print(f"\nWriting test data to Excel...")
         logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
-        if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time=start_time):
+        if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time_str=start_time_str):
             print(f"✓ Test data written successfully! Column '{test_header}' updated.")
         else:
             print(f"✗ Failed to write test data.")
@@ -442,8 +471,9 @@ if __name__ == "__main__":
                     logger.info("User selected: Add Power Calculations")
                     print("\n=== Add Power Calculations ===")
                     
-                    # Get filename from user
-                    default_file = config.get('test_settings', {}).get('default_excel_file', 'power_measurements.xlsx')
+                    # Get filename from user using folder name
+                    folder_name = os.path.basename(os.getcwd())
+                    default_file = f"{folder_name}.xlsx"
                     filename = input(f"Enter Excel filename (press Enter for '{default_file}'): ").strip()
                     if not filename:
                         filename = default_file
