@@ -373,21 +373,21 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                             # Update all merged cell ranges
                             if has_start_times_with_averages:
                                 # Update "Averages" merge (row 1)
-                                ws.unmerge_cells(ws.merged_cells.ranges[0].coord)
+                                ws.unmerge_cells(list(ws.merged_cells.ranges)[0].coord)
                                 ws.merge_cells(f'A1:{end_col_letter}1')
                                 ws[f'{end_col_letter}1'].border = border_style
                                 # Update "Test Start Times" merge (row 3)
-                                ws.unmerge_cells(ws.merged_cells.ranges[0].coord)
+                                ws.unmerge_cells(list(ws.merged_cells.ranges)[0].coord)
                                 ws.merge_cells(f'A3:{end_col_letter}3')
                                 ws[f'{end_col_letter}3'].border = border_style
                             elif has_averages:
                                 # Update "Averages" merge only
-                                ws.unmerge_cells(ws.merged_cells.ranges[0].coord)
+                                ws.unmerge_cells(list(ws.merged_cells.ranges)[0].coord)
                                 ws.merge_cells(f'A1:{end_col_letter}1')
                                 ws[f'{end_col_letter}1'].border = border_style
                             elif has_start_times:
                                 # Update "Test Start Times" merge only
-                                ws.unmerge_cells(ws.merged_cells.ranges[0].coord)
+                                ws.unmerge_cells(list(ws.merged_cells.ranges)[0].coord)
                                 ws.merge_cells(f'A1:{end_col_letter}1')
                                 ws[f'{end_col_letter}1'].border = border_style
                         
@@ -472,7 +472,7 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     
                     # Extend merge if needed
                     if ws['A1'].value == 'Test Start Times' and num_cols > 1:
-                        ws.unmerge_cells(ws.merged_cells.ranges[0].coord)
+                        ws.unmerge_cells(list(ws.merged_cells.ranges)[0].coord)
                         end_col_letter = get_column_letter(col_idx)
                         ws.merge_cells(f'A1:{end_col_letter}1')
                         from openpyxl.styles import Border, Side
