@@ -92,7 +92,7 @@ def run_power_tests():
         print("[1] Continue from where testing left off (skip completed tests)")
         print("[2] Overwrite file and start fresh")
         print("[3] Create new file with timestamp")
-        print("[4] Cancel")
+        print("[x] Cancel")
         
         while True:
             response = input("\nSelect option: ").strip()
@@ -136,13 +136,13 @@ def run_power_tests():
                 logger.info(f"User chose new filename: {default_excel_file}")
                 break
                 
-            elif response == '4':
+            elif response == 'x':
                 print("Cancelled.")
                 logger.info("User cancelled test run")
                 return
                 
             else:
-                print("Invalid option. Please select 1-4.")
+                print("Invalid option. Please select 1-3 or x.")
     
     # Find all test configurations by looking for test_excel_header_x keys
     test_numbers = []
@@ -332,26 +332,27 @@ def rerun_specific_test():
     for idx, test_num in enumerate(test_numbers, start=1):
         test_header = test_mapping[test_num]['header']
         print(f"[{idx}] {test_header}")
-    print(f"[{len(test_numbers) + 1}] Cancel")
+    print("[x] Cancel")
     print("="*60)
     
     # Get user selection
     while True:
+        choice = input("\nSelect test to rerun: ").strip()
+        
+        if choice == 'x':
+            print("Cancelled.")
+            return
+        
         try:
-            choice = input("\nSelect test to rerun: ").strip()
             choice_idx = int(choice)
-            
-            if choice_idx == len(test_numbers) + 1:
-                print("Cancelled.")
-                return
             
             if 1 <= choice_idx <= len(test_numbers):
                 selected_num = test_numbers[choice_idx - 1]
                 break
             else:
-                print(f"Invalid option. Please select 1-{len(test_numbers) + 1}.")
+                print(f"Invalid option. Please select 1-{len(test_numbers)} or x.")
         except ValueError:
-            print("Invalid input. Please enter a number.")
+            print("Invalid input. Please enter a number or x.")
     
     # Get test configuration
     test_header = test_settings.get(f'test_excel_header_{selected_num}')
@@ -380,7 +381,7 @@ def rerun_specific_test():
         print("\nData Mode Options:")
         print("[1] Replace - Overwrite the existing column data")
         print("[2] Append - Add new data below existing column data")
-        print("[3] Cancel")
+        print("[x] Cancel")
         
         while True:
             mode_choice = input("\nSelect data mode: ").strip()
@@ -392,11 +393,11 @@ def rerun_specific_test():
                 replace_mode = False
                 print(f"\n⚠️  This will append new data to the existing '{test_header}' column in '{filename}'")
                 break
-            elif mode_choice == '3':
+            elif mode_choice == 'x':
                 print("Cancelled.")
                 return
             else:
-                print("Invalid option. Please select 1, 2, or 3.")
+                print("Invalid option. Please select 1, 2, or x.")
         
         print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!")
         confirm = input("\nContinue? (y/n): ").strip().lower()
