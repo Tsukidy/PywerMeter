@@ -317,19 +317,26 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     if has_averages or has_start_times:
                         logger.info("Using openpyxl for direct manipulation")
                         
-                        # Get headers from the appropriate row
-                        headers = [cell.value for cell in ws[header_row]]
+                        # Get headers from the appropriate row (only non-empty cells)
+                        headers = []
+                        for idx, cell in enumerate(ws[header_row], start=1):
+                            if cell.value is not None and str(cell.value).strip():
+                                headers.append((idx, cell.value))
+                            # Stop reading if we hit multiple consecutive empty cells
+                            elif idx > 1 and (idx > len(headers) + 5):
+                                break
                         
                         # Find if column already exists
                         col_idx = None
-                        for idx, header in enumerate(headers, start=1):
+                        for idx, header in headers:
                             if header == test_header:
                                 col_idx = idx
                                 break
                         
                         # If column doesn't exist, add it
                         if col_idx is None:
-                            col_idx = len(headers) + 1
+                            # Find the last non-empty column index
+                            col_idx = max([idx for idx, _ in headers]) + 1 if headers else 1
                             from openpyxl.utils import get_column_letter
                             from openpyxl.styles import Font, Alignment, Border, Side
                             col_letter = get_column_letter(col_idx)
@@ -387,7 +394,7 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                             ws[f'{col_letter}2'].value = f'=AVERAGE({col_letter}{data_start_row}:{col_letter}{last_data_row})'
                         
                         # Update merged cell ranges if we added a new column
-                        if col_idx > len(headers):
+                        if col_idx > max([idx for idx, _ in headers], default=0):
                             from openpyxl.styles import Border, Side
                             border_style = Border(
                                 left=Side(style='thin', color='000000'),
@@ -482,17 +489,23 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                     logger.debug("Converted to start times structure: Row 1=header, Row 2=times, Row 3=columns, Row 4+=data")
                 
                 # Now add/update the test column with start time
-                # Find column index
-                headers = [cell.value for cell in ws[3]]
+                # Find column index (only read non-empty headers)
+                headers = []
+                for idx, cell in enumerate(ws[3], start=1):
+                    if cell.value is not None and str(cell.value).strip():
+                        headers.append((idx, cell.value))
+                    elif idx > 1 and (idx > len(headers) + 5):
+                        break
+                
                 col_idx = None
-                for idx, header in enumerate(headers, start=1):
+                for idx, header in headers:
                     if header == test_header:
                         col_idx = idx
                         break
                 
                 if col_idx is None:
-                    # New column
-                    col_idx = len(headers) + 1
+                    # New column - find last non-empty column
+                    col_idx = max([idx for idx, _ in headers]) + 1 if headers else 1
                     from openpyxl.utils import get_column_letter
                     from openpyxl.styles import Font, Alignment, Border, Side
                     col_letter = get_column_letter(col_idx)
