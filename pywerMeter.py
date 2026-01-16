@@ -432,7 +432,7 @@ def rerun_specific_test():
                 print("Invalid option. Please select 1, 2, or x.")
         
         print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!")
-        confirm = input("\nContinue? (y/n): ").strip().lower()
+        confirm = input("\nContinue? (y/N): ").strip().lower()
         if confirm != 'y':
             print("Cancelled.")
             return
