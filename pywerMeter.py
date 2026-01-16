@@ -304,7 +304,7 @@ def run_power_tests():
     print()
 
 def rerun_specific_test():
-    """Allow user to select and rerun a specific test, overwriting its data in Excel."""
+    """Allow user to select and rerun specific tests, with options for single or combined tests."""
     test_settings = config.get('test_settings', {})
     
     # Find all available tests
@@ -327,45 +327,77 @@ def rerun_specific_test():
     # Sort test numbers
     test_numbers.sort()
     
-    # Display available tests
-    print("\n=== Available Tests to Rerun ===")
-    for idx, test_num in enumerate(test_numbers, start=1):
-        test_header = test_mapping[test_num]['header']
-        print(f"[{idx}] {test_header}")
+    # Create option menu (assuming first 4 tests are Off, Short Idle, Long Idle, Sleep)
+    print("\n=== Select Tests to Rerun ===")
+    print("[1] Off")
+    print("[2] Short Idle")
+    print("[3] Short Idle, Long Idle")
+    print("[4] Short Idle, Long Idle, Sleep")
+    print("[5] Custom - Select specific tests")
     print("[x] Cancel")
     print("="*60)
     
     # Get user selection
+    selected_test_nums = []
     while True:
-        choice = input("\nSelect test to rerun: ").strip()
+        choice = input("\nSelect option: ").strip()
         
         if choice == 'x':
             print("Cancelled.")
             return
         
-        try:
-            choice_idx = int(choice)
+        if choice == '1':
+            selected_test_nums = ['1']  # Off only
+            break
+        elif choice == '2':
+            selected_test_nums = ['2']  # Short Idle only
+            break
+        elif choice == '3':
+            selected_test_nums = ['2', '3']  # Short Idle, Long Idle
+            break
+        elif choice == '4':
+            selected_test_nums = ['2', '3', '4']  # Short Idle, Long Idle, Sleep
+            break
+        elif choice == '5':
+            # Custom selection - allow user to pick specific tests
+            print("\n=== Available Tests ===")
+            for idx, test_num in enumerate(test_numbers, start=1):
+                test_header = test_mapping[test_num]['header']
+                print(f"[{idx}] {test_header}")
+            print("="*60)
+            print("\nEnter test numbers separated by commas (e.g., 1,3,4)")
+            print("Or enter 'x' to cancel")
             
-            if 1 <= choice_idx <= len(test_numbers):
-                selected_num = test_numbers[choice_idx - 1]
+            custom_input = input("\nSelect tests: ").strip()
+            
+            if custom_input.lower() == 'x':
+                print("Cancelled.")
+                return
+            
+            try:
+                # Parse comma-separated input
+                selected_indices = [int(x.strip()) for x in custom_input.split(',')]
+                
+                # Validate selections
+                invalid_selections = [idx for idx in selected_indices if idx < 1 or idx > len(test_numbers)]
+                if invalid_selections:
+                    print(f"Invalid selection(s): {', '.join(map(str, invalid_selections))}")
+                    print("Please try again.")
+                    continue
+                
+                # Convert to test numbers
+                selected_test_nums = [test_numbers[idx - 1] for idx in selected_indices]
+                
+                # Display selected tests
+                selected_names = [test_mapping[num]['header'] for num in selected_test_nums]
+                print(f"\nSelected tests: {', '.join(selected_names)}")
                 break
-            else:
-                print(f"Invalid option. Please select 1-{len(test_numbers)} or x.")
-        except ValueError:
-            print("Invalid input. Please enter a number or x.")
-    
-    # Get test configuration
-    test_header = test_settings.get(f'test_excel_header_{selected_num}')
-    start_time_raw = test_settings.get(f'test_start_time_{selected_num}')
-    duration_raw = test_settings.get(f'test_duration_{selected_num}')
-    
-    start_time = parse_time_value(start_time_raw) if start_time_raw is not None else 0
-    duration = parse_time_value(duration_raw) if duration_raw is not None else None
-    
-    if not duration:
-        print(f"Error: No duration configured for {test_header}")
-        logger.error(f"No duration configured for test {selected_num}")
-        return
+                
+            except ValueError:
+                print("Invalid input. Please enter numbers separated by commas.")
+                continue
+        else:
+            print("Invalid option. Please select 1-5 or x.")
     
     # Get Excel filename using current folder name
     folder_name = os.path.basename(os.getcwd())
@@ -387,11 +419,11 @@ def rerun_specific_test():
             mode_choice = input("\nSelect data mode: ").strip()
             if mode_choice == '1':
                 replace_mode = True
-                print(f"\n⚠️  This will replace the existing '{test_header}' column data in '{filename}'")
+                print(f"\n⚠️  This will replace the existing column data in '{filename}'")
                 break
             elif mode_choice == '2':
                 replace_mode = False
-                print(f"\n⚠️  This will append new data to the existing '{test_header}' column in '{filename}'")
+                print(f"\n⚠️  This will append new data to the existing columns in '{filename}'")
                 break
             elif mode_choice == 'x':
                 print("Cancelled.")
@@ -408,39 +440,56 @@ def rerun_specific_test():
         print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
         replace_mode = True  # Default to replace for new files
     
-    # Run the test
-    print(f"\n=== Running Test: {test_header} ===")
-    print(f"Duration: {duration:.2f} minutes")
-    logger.info(f"Rerunning test: {test_header} for {duration} minutes")
-    
-    # Capture start time
-    from datetime import datetime
-    import pytz
-    try:
-        est = pytz.timezone('US/Eastern')
-        actual_start_time = datetime.now(est)
-        start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
-    except:
-        # Fallback if pytz not available
-        actual_start_time = datetime.now()
-        start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
-    
-    samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=None, test_header=test_header)
-    
-    # Write to Excel (will replace or append based on user choice)
-    if samples:
-        mode_text = "replaced" if replace_mode else "appended"
-        print(f"\nWriting test data to Excel...")
-        logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header} (mode: {mode_text})")
-        if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time_str=start_time_str, replace_mode=replace_mode):
-            print(f"✓ Test data written successfully! Column '{test_header}' {mode_text}.")
+    # Run each selected test sequentially
+    for test_num in selected_test_nums:
+        # Get test configuration
+        test_header = test_settings.get(f'test_excel_header_{test_num}')
+        start_time_raw = test_settings.get(f'test_start_time_{test_num}')
+        duration_raw = test_settings.get(f'test_duration_{test_num}')
+        
+        start_time = parse_time_value(start_time_raw) if start_time_raw is not None else 0
+        duration = parse_time_value(duration_raw) if duration_raw is not None else None
+        
+        if not duration:
+            print(f"Error: No duration configured for {test_header}")
+            logger.error(f"No duration configured for test {test_num}")
+            continue
+        
+        # Run the test
+        print(f"\n=== Running Test: {test_header} ===")
+        print(f"Duration: {duration:.2f} minutes")
+        logger.info(f"Rerunning test: {test_header} for {duration} minutes")
+        
+        # Capture start time
+        from datetime import datetime
+        import pytz
+        try:
+            est = pytz.timezone('US/Eastern')
+            actual_start_time = datetime.now(est)
+            start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
+        except:
+            # Fallback if pytz not available
+            actual_start_time = datetime.now()
+            start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
+        
+        samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=None, test_header=test_header)
+        
+        # Write to Excel (will replace or append based on user choice)
+        if samples:
+            mode_text = "replaced" if replace_mode else "appended"
+            print(f"\nWriting test data to Excel...")
+            logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header} (mode: {mode_text})")
+            if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time_str=start_time_str, replace_mode=replace_mode):
+                print(f"✓ Test data written successfully! Column '{test_header}' {mode_text}.")
+            else:
+                print(f"✗ Failed to write test data.")
         else:
-            print(f"✗ Failed to write test data.")
-    else:
-        print(f"No samples collected for {test_header}")
-        logger.warning(f"No samples collected for rerun of test: {test_header}")
+            print(f"No samples collected for {test_header}")
+            logger.warning(f"No samples collected for rerun of test: {test_header}")
+        
+        print(f"\n=== Test Complete: {test_header} ===\n")
     
-    print(f"\n=== Test Complete ===\n")
+    print(f"\n=== All Selected Tests Complete ===\n")
 
 def parse_time_value(time_value):
     """
