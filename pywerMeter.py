@@ -440,14 +440,13 @@ def rerun_specific_test():
         print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
         replace_mode = True  # Default to replace for new files
     
-    # Initialize global timer for multiple tests
+    # Initialize global timer (always used to maintain consistent timing)
     global_start_time = time.time()
     elapsed_time = 0  # in minutes
     
-    if len(selected_test_nums) > 1:
-        print("\n========== Starting Test Sequence ==========")
-        print("Global timer started. Tests will run with configured delays.")
-        logger.info("Global timer started for rerun test sequence")
+    print("\n========== Starting Test Sequence ==========")
+    print("Global timer started. Tests will run at their configured start times.")
+    logger.info("Global timer started for rerun test sequence")
     
     # Run each selected test sequentially
     for idx, test_num in enumerate(selected_test_nums):
@@ -465,25 +464,22 @@ def rerun_specific_test():
             logger.error(f"No duration configured for test {test_num}")
             continue
         
-        # For multiple tests, implement the delay based on start_time
-        if len(selected_test_nums) > 1:
-            # Wait until the global timer reaches the start time
-            while elapsed_time < start_time:
-                elapsed_time = (time.time() - global_start_time) / 60
-                remaining = start_time - elapsed_time
-                if remaining > 0:
-                    print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for test '{test_header}' (starts at {start_time:.2f} min, {remaining:.2f} min remaining)...", end="", flush=True)
-                    time.sleep(1)
-            
-            # Update elapsed time one final time before capturing start time
+        # Wait until the global timer reaches the start time
+        while elapsed_time < start_time:
             elapsed_time = (time.time() - global_start_time) / 60
+            remaining = start_time - elapsed_time
+            if remaining > 0:
+                print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for test '{test_header}' (starts at {start_time:.2f} min, {remaining:.2f} min remaining)...", end="", flush=True)
+                time.sleep(1)
+        
+        # Update elapsed time one final time before capturing start time
+        elapsed_time = (time.time() - global_start_time) / 60
         
         # Run the test
         print(f"\n\n=== Running Test: {test_header} ===")
-        if len(selected_test_nums) > 1:
-            print(f"Starting at: {elapsed_time:.2f} minutes")
+        print(f"Starting at: {elapsed_time:.2f} minutes (global timer)")
         print(f"Duration: {duration:.2f} minutes")
-        logger.info(f"Rerunning test: {test_header} for {duration} minutes")
+        logger.info(f"Rerunning test: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
         
         # Capture start time
         from datetime import datetime
@@ -491,23 +487,14 @@ def rerun_specific_test():
         try:
             est = pytz.timezone('US/Eastern')
             actual_start_time = datetime.now(est)
-            if len(selected_test_nums) > 1:
-                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
-            else:
-                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
+            start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
         except:
             # Fallback if pytz not available
             actual_start_time = datetime.now()
-            if len(selected_test_nums) > 1:
-                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
-            else:
-                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / 0.00 min"
+            start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
         
-        # Pass global_start_time if running multiple tests
-        if len(selected_test_nums) > 1:
-            samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
-        else:
-            samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=None, test_header=test_header)
+        # Always pass global_start_time for consistent timing display
+        samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
         
         # Write to Excel (will replace or append based on user choice)
         if samples:
@@ -523,28 +510,24 @@ def rerun_specific_test():
             logger.warning(f"No samples collected for rerun of test: {test_header}")
         
         # Update elapsed time after test
-        if len(selected_test_nums) > 1:
-            elapsed_time = (time.time() - global_start_time) / 60
-            
-            # Pause the timer if requested
-            if pause_after:
-                print(f"\nGlobal timer paused at {elapsed_time:.2f} minutes.")
-                logger.info(f"Global timer paused at {elapsed_time:.2f} minutes for user input")
-                input("Press Enter to continue to the next test...")
-                # Adjust the global start time to account for the pause
-                global_start_time = time.time() - (elapsed_time * 60)
-                print(f"Global timer resumed.\n")
-                logger.info("Global timer resumed")
+        elapsed_time = (time.time() - global_start_time) / 60
+        
+        # Pause the timer if requested
+        if pause_after:
+            print(f"\nGlobal timer paused at {elapsed_time:.2f} minutes.")
+            logger.info(f"Global timer paused at {elapsed_time:.2f} minutes for user input")
+            input("Press Enter to continue to the next test...")
+            # Adjust the global start time to account for the pause
+            global_start_time = time.time() - (elapsed_time * 60)
+            print(f"Global timer resumed.\n")
+            logger.info("Global timer resumed")
         
         print(f"\n=== Test Complete: {test_header} ===\n")
     
-    if len(selected_test_nums) > 1:
-        final_elapsed = (time.time() - global_start_time) / 60
-        print(f"\n========== All Selected Tests Complete ==========")
-        print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
-        logger.info(f"All rerun tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
-    else:
-        print(f"\n=== All Selected Tests Complete ===\n")
+    final_elapsed = (time.time() - global_start_time) / 60
+    print(f"\n========== All Selected Tests Complete ==========")
+    print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
+    logger.info(f"All rerun tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
 
 def parse_time_value(time_value):
     """
@@ -680,8 +663,14 @@ if __name__ == "__main__":
                     print("[1] Add Averages Only")
                     print("[2] Add Total Annual Power Only")
                     print("[3] Add Both (Averages + Total Annual Power)")
+                    print("[x] Cancel")
                     
                     calc_choice = input("Select option: ").strip()
+                    
+                    if calc_choice.lower() == 'x':
+                        print("Cancelled.")
+                        logger.info("User cancelled power calculations")
+                        continue
                     
                     try:
                         calc = excelHelper.PowerCalc(filename, "Power Data")
