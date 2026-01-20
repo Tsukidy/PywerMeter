@@ -444,6 +444,25 @@ def rerun_specific_test():
     global_start_time = time.time()
     elapsed_time = 0  # in minutes
     
+    # Check if time adjustment is enabled and "Off" test (test 1) is not included
+    time_adjustment = 0
+    adjust_enabled = test_settings.get('adjust_time_without_off', 'Off')
+    
+    if '1' not in selected_test_nums and isinstance(adjust_enabled, str) and adjust_enabled.lower() == 'on':
+        # Get "Off" test duration and start time to calculate adjustment
+        off_duration_raw = test_settings.get('test_duration_1')
+        off_start_time_raw = test_settings.get('test_start_time_1', 0)
+        
+        if off_duration_raw is not None:
+            off_duration = parse_time_value(off_duration_raw)
+            off_start_time = parse_time_value(off_start_time_raw) if off_start_time_raw is not None else 0
+            
+            # Adjustment is the "Off" test's start time + its duration
+            time_adjustment = off_start_time + off_duration
+            
+            print(f"\n⚠️  'Off' test not included. Adjusting start times by -{time_adjustment:.2f} minutes")
+            logger.info(f"'Off' test excluded. Subtracting {time_adjustment:.2f} minutes from all test start times")
+    
     print("\n========== Starting Test Sequence ==========")
     print("Global timer started. Tests will run at their configured start times.")
     logger.info("Global timer started for rerun test sequence")
@@ -455,9 +474,18 @@ def rerun_specific_test():
         start_time_raw = test_settings.get(f'test_start_time_{test_num}')
         duration_raw = test_settings.get(f'test_duration_{test_num}')
         pause_after = test_settings.get(f'after_test_pause_{test_num}')
+        fast_start = test_settings.get(f'test_fast_start_{test_num}', 'Off')
         
         start_time = parse_time_value(start_time_raw) if start_time_raw is not None else 0
         duration = parse_time_value(duration_raw) if duration_raw is not None else None
+        
+        # Apply time adjustment if "Off" test is not included
+        start_time = max(0, start_time - time_adjustment)
+        
+        # Check FastStart flag - if enabled, override start time to 0
+        if isinstance(fast_start, str) and fast_start.lower() == 'on':
+            start_time = 0
+            logger.info(f"FastStart enabled for test {test_num} - start time set to 0")
         
         if not duration:
             print(f"Error: No duration configured for {test_header}")

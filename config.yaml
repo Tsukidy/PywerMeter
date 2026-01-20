@@ -2,29 +2,40 @@
 # Time formats supported:
 #   - Numeric: treated as minutes (e.g., 1.5 = 1.5 minutes)
 #   - String "M:SS": minutes:seconds (e.g., "1:30" = 1 minute 30 seconds)
+# FastStart: Set to "On" to ignore start time in rerun tests (starts immediately at 0 min)
+# Adjust Time Without Off: Set to "On" to subtract Off test duration from start times when Off is excluded in reruns
 
 test_settings:
   # Default Excel output file for all tests
   default_excel_file: "power_measurements.xlsx"
+  
+  # Adjust start times when "Off" test is excluded from reruns
+  adjust_time_without_off: "On"  # "On" = subtract Off duration, "Off" = use original start times
+  
+  # Test 1: Off, Test 2: Short Idle, Test 3: Long Idle, Test 4: Sleep
   # Off
   test_excel_header_1: "Off"
   test_start_time_1: 0        # Start immediately
   test_duration_1: "5:00"     # Run for 5 minutes
+  test_fast_start_1: "Off"    # FastStart: "On" to start immediately in rerun tests
   after_test_pause_1: true
   # Short Idle
   test_excel_header_2: "Short Idle"
   test_start_time_2: "10:00"   # Start at 10 minutes
   test_duration_2: "5:00"     # Run for 5 minutes
+  test_fast_start_2: "Off"    # FastStart: "On" to start immediately in rerun tests
   after_test_pause_2: true
   # Long Idle
   test_excel_header_3: "Long Idle"
   test_start_time_3: "23:00"   # Start at 23 minutes
   test_duration_3: "5:00"     # Run for 5 minutes
+  test_fast_start_3: "Off"    # FastStart: "On" to start immediately in rerun tests
   after_test_pause_3: false
   # Sleep
   test_excel_header_4: "Sleep"
   test_start_time_4: "35:45"   # Start at 35 minutes 45 seconds
   test_duration_4: "5:00"      # Run for 5 minutes
+  test_fast_start_4: "Off"    # FastStart: "On" to start immediately in rerun tests
   after_test_pause_4: false
 
 # Serial Command Settings
