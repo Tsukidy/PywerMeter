@@ -379,6 +379,9 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                         for i, value in enumerate(numeric_samples, start=write_start_row):
                             ws[f'{col_letter}{i}'].value = value
                         
+                        # Calculate the actual last row with data (important for append mode)
+                        last_data_row = write_start_row + len(numeric_samples) - 1
+                        
                         # Update start time if provided and row exists
                         if start_time_row is not None:
                             if start_time_str is not None:
@@ -390,8 +393,8 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
                         
                         # Update average formula if averages exist
                         if has_averages:
-                            last_data_row = data_start_row + len(numeric_samples) - 1
                             ws[f'{col_letter}2'].value = f'=AVERAGE({col_letter}{data_start_row}:{col_letter}{last_data_row})'
+                            logger.debug(f"Updated average formula to include rows {data_start_row} to {last_data_row}")
                         
                         # Update merged cell ranges if we added a new column
                         if col_idx > max([idx for idx, _ in headers], default=0):
@@ -656,6 +659,106 @@ def write_test_row_to_excel(test_header, samples, workbook_filename="power_measu
         logger.error(f"Unexpected error writing test column to Excel: {e}", exc_info=True)
         print(f"ERROR: Unexpected error writing to Excel: {e}")
         return False
+
+
+def initialize_excel_headers(test_headers_list, workbook_filename="power_measurements.xlsx", sheet_name="Power Data"):
+    """
+    Initialize an Excel file with all test column headers and average formulas before any data is collected.
+    Creates the file structure with averages, start times, and headers.
+    
+    Args:
+        test_headers_list (list): List of test header names to create columns for
+        workbook_filename (str): Path to the Excel workbook
+        sheet_name (str): Name for the sheet
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger.info(f"Initializing Excel file with {len(test_headers_list)} test headers and formulas")
+        
+        import openpyxl
+        from openpyxl.utils import get_column_letter
+        from openpyxl.styles import Font, Alignment, Border, Side
+        
+        # Create new workbook with full structure
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+        
+        # Define border style
+        border_style = Border(
+            left=Side(style='thin', color='000000'),
+            right=Side(style='thin', color='000000'),
+            top=Side(style='thin', color='000000'),
+            bottom=Side(style='thin', color='000000')
+        )
+        
+        # Calculate number of columns needed
+        num_cols = len(test_headers_list)
+        end_col_letter = get_column_letter(num_cols)
+        
+        # Row 1: "Averages" header (merged across all columns)
+        ws['A1'] = 'Averages'
+        ws.merge_cells(f'A1:{end_col_letter}1')
+        ws['A1'].font = Font(bold=True)
+        ws['A1'].alignment = Alignment(horizontal='center')
+        ws['A1'].border = border_style
+        
+        # Apply border to all cells in the merged range for row 1
+        for col_idx in range(1, num_cols + 1):
+            col_letter = get_column_letter(col_idx)
+            ws[f'{col_letter}1'].border = border_style
+        
+        # Row 2: Average formulas (will calculate from row 6 onwards)
+        # Initialize with placeholder formula that will be updated as data is added
+        for col_idx in range(1, num_cols + 1):
+            col_letter = get_column_letter(col_idx)
+            # Formula starts at row 6 (first data row), will auto-expand as data is added
+            ws[f'{col_letter}2'].value = f'=AVERAGE({col_letter}6:{col_letter}6)'
+        
+        # Row 3: "Test Start Times" header (merged across all columns)
+        ws['A3'] = 'Test Start Times'
+        ws.merge_cells(f'A3:{end_col_letter}3')
+        ws['A3'].font = Font(bold=True)
+        ws['A3'].alignment = Alignment(horizontal='center')
+        ws['A3'].border = border_style
+        
+        # Apply border to all cells in the merged range for row 3
+        for col_idx in range(1, num_cols + 1):
+            col_letter = get_column_letter(col_idx)
+            ws[f'{col_letter}3'].border = border_style
+        
+        # Row 4: Empty row for start times (will be filled when tests run)
+        
+        # Row 5: Column headers
+        for col_idx, header in enumerate(test_headers_list, start=1):
+            col_letter = get_column_letter(col_idx)
+            header_cell = ws[f'{col_letter}5']
+            header_cell.value = header
+            header_cell.font = Font(bold=True)
+            header_cell.alignment = Alignment(horizontal='center')
+            header_cell.border = border_style
+        
+        # Row 6+: Data rows (will be filled when tests run)
+        
+        # Save the workbook
+        wb.save(workbook_filename)
+        wb.close()
+        
+        logger.info(f"Successfully initialized Excel file with averages and start times: {workbook_filename}")
+        print(f"✓ Excel file initialized with {len(test_headers_list)} test columns (including averages)")
+        return True
+        
+    except PermissionError:
+        logger.error(f"Permission denied creating workbook: {workbook_filename}", exc_info=True)
+        print(f"ERROR: Permission denied. File may be open: {workbook_filename}")
+        return False
+    except Exception as e:
+        logger.error(f"Error initializing Excel headers: {e}", exc_info=True)
+        print(f"ERROR: Failed to initialize Excel file: {e}")
+        return False
+
 
 class PowerCalc:
     """

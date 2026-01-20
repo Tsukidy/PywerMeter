@@ -163,6 +163,24 @@ def run_power_tests():
     logger.info("Global timer started for test sequence")
     logger.info(f"Excel output file: {default_excel_file}")
     
+    # Create Excel file with all headers before starting tests
+    if not os.path.exists(default_excel_file) or not tests_to_skip:
+        # Collect all test headers that will be run
+        test_headers_to_create = []
+        for test_num in test_numbers:
+            test_header = test_settings.get(f'test_excel_header_{test_num}')
+            if test_header and test_header not in tests_to_skip:
+                test_headers_to_create.append(test_header)
+        
+        if test_headers_to_create:
+            print("Initializing Excel file with test columns...")
+            logger.info(f"Creating Excel structure with headers: {test_headers_to_create}")
+            if not excelHelper.initialize_excel_headers(test_headers_to_create, default_excel_file, "Power Data"):
+                print("ERROR: Failed to initialize Excel file. Aborting.")
+                logger.error("Failed to initialize Excel file structure")
+                return
+            print()
+    
     # Run each test
     for test_num in test_numbers:
         test_header = test_settings.get(f'test_excel_header_{test_num}')
