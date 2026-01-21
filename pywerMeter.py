@@ -309,8 +309,41 @@ def rerun_specific_test():
     # Get filename
     folder_name = os.path.basename(os.getcwd())
     default_file = f"{folder_name}.xlsx"
-    filename = input(f"\nEnter filename (Enter for '{default_file}'): ").strip()
-    if not filename:
+    
+    # Find all Excel files in current directory
+    excel_files = [f for f in os.listdir('.') if f.endswith('.xlsx') and not f.startswith('~$')]
+    
+    if excel_files:
+        print("\n=== Available Excel Files ===")
+        for idx, file in enumerate(excel_files, start=1):
+            print(f"[{idx}] {file}")
+        print("[n] Create new file (default name)")
+        print("[x] Cancel")
+        print("="*60)
+        
+        while True:
+            file_choice = input("\nSelect file: ").strip()
+            
+            if file_choice.lower() == 'x':
+                print("Cancelled.")
+                return
+            elif file_choice.lower() == 'n':
+                filename = default_file
+                print(f"\nUsing new file: {filename}")
+                break
+            else:
+                try:
+                    file_idx = int(file_choice)
+                    if 1 <= file_idx <= len(excel_files):
+                        filename = excel_files[file_idx - 1]
+                        print(f"\nSelected: {filename}")
+                        break
+                    else:
+                        print("Invalid selection.")
+                except ValueError:
+                    print("Invalid input. Enter a number, 'n', or 'x'.")
+    else:
+        print(f"\nNo Excel files found. Using default: {default_file}")
         filename = default_file
     
     # Replace or append mode
@@ -326,19 +359,24 @@ def rerun_specific_test():
             if mode_choice == '1':
                 replace_mode = True
                 print(f"\n⚠️  Will replace data in '{filename}'")
+                logger.info("Mode: Replace")
                 break
             elif mode_choice == '2':
                 replace_mode = False
                 print(f"\n⚠️  Will append data to '{filename}'")
+                logger.info("Mode: Append")
                 break
             elif mode_choice == 'x':
                 print("Cancelled.")
                 return
             else:
                 print("Invalid option.")
-        
-        print("⚠️  Close Excel file before continuing!")
-        input("\nPress Enter to continue...")
+    else:
+        print(f"\n⚠️  File '{filename}' does not exist. Will create new file.")
+        logger.info(f"File does not exist: {filename}")
+    
+    print("⚠️  Close Excel file before continuing!")
+    input("\nPress Enter to continue...")
     
     # Initialize timer
     global_start_time = time.time()
