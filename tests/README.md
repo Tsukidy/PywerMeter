@@ -1,12 +1,18 @@
 # PywerMeter Test Suite
 
-This directory contains pytest tests for the pywerMeter application.
+This directory contains comprehensive pytest tests for the pywerMeter application.
 
 ## Test Coverage
 
 ### Core Modules Tested
 
-1. **test_time_utils.py** - Tests for time utilities (19 tests - ALL PASSING ✓)
+1. **test_config_helper.py** - Tests for ConfigManager class (10 tests - ALL PASSING ✓)
+   - Configuration loading and lazy loading
+   - Getting values with defaults
+   - Test settings, serial settings, log settings, command settings retrieval
+   - Configuration caching
+
+2. **test_time_utils.py** - Tests for time utilities (19 tests - ALL PASSING ✓)
    - Time parsing (integers, floats, M:SS format)
    - Time formatting to M:SS string
    - Formatted start time generation
@@ -14,7 +20,36 @@ This directory contains pytest tests for the pywerMeter application.
    - Timezone handling (with/without pytz)
    - Negative number handling
 
-2. **test_sample.py** - Basic sanity test (1 test - PASSING ✓)
+3. **test_serial_comm.py** - Tests for SerialDevice and SerialDeviceBuilder (16 tests - ALL PASSING ✓)
+   - Serial port listing functionality
+   - SerialDeviceBuilder pattern implementation
+   - Builder method chaining
+   - SerialDevice creation and operations
+   - Query, close operations with proper mocking
+   - Integration workflow tests
+
+4. **test_menu_helper.py** - Tests for MenuItem and MenuSystem (14 tests - ALL PASSING ✓)
+   - MenuItem dataclass creation and display
+   - MenuSystem item management
+   - Menu execution with valid/invalid choices
+   - display_menu and display_ascii_art functions
+
+5. **test_data_collector.py** - Tests for data collection functions (15 tests - ALL PASSING ✓)
+   - initSerialDevice with various error scenarios
+   - readSerialData success and error handling
+   - serialFunction main collection loop
+   - Keyboard interrupt handling
+   - Global timer tracking
+   - Recent samples tracking
+
+6. **test_sample.py** - Basic sanity test (1 test - PASSING ✓)
+
+## Test Results Summary
+
+**Total Tests**: 75  
+**Passing**: 75 ✓  
+**Failing**: 0  
+**Success Rate**: 100%
 
 ## Running Tests
 
