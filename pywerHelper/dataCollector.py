@@ -23,7 +23,8 @@ def initSerialDevice(logger: logging.Logger) -> Optional[serialComm.SerialDevice
     """
     try:
         logger.info("Initializing serial device")
-        dev = serialComm.SerialDevice()
+        # Use builder pattern to load settings from config
+        dev = serialComm.SerialDeviceBuilder().from_config().build()
         logger.info("Serial device initialized successfully")
         return dev
     except serialComm.serial.SerialException as e:
@@ -44,7 +45,7 @@ def initSerialDevice(logger: logging.Logger) -> Optional[serialComm.SerialDevice
 def readSerialData(
     dev: serialComm.SerialDevice, 
     logger: logging.Logger, 
-    command: bytes = b'?MPOW'
+    command: Optional[bytes] = None
 ) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
     """
     Read data from serial device with proper error handling.
@@ -52,12 +53,15 @@ def readSerialData(
     Args:
         dev: SerialDevice object to query
         logger: Logger instance for logging operations
-        command: Byte string command to send to device
+        command: Byte string command to send to device (defaults to config or b'?MPOW')
         
     Returns:
         tuple: (unformattedData, retHexData, retAsciiData) or (None, None, None) on error
     """
     try:
+        # Use default command from query if not specified
+        if command is None:
+            command = b'?MPOW'
         logger.debug(f"Querying device with command: {command}")
         unformattedData, retHexData, retAsciiData = dev.query(command=command)
         logger.debug(f"Received data: {retAsciiData}")
@@ -113,7 +117,7 @@ def serialFunction(
     # Read serial data for specified duration
     try:
         while time.time() < end_time:
-            unformattedData, retHexData, retAsciiData = readSerialData(dev, logger, command=b'?MPOW')
+            unformattedData, retHexData, retAsciiData = readSerialData(dev, logger)
             
             # Track if we got a new sample
             got_new_sample = False
