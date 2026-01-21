@@ -113,6 +113,9 @@ def serialFunction(
     
     print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
     logger.info(f"Starting data collection: {minutes:.2f} minutes for test '{test_header}'")
+    
+    # Initialize display
+    lines_drawn = 0
 
     # Read serial data for specified duration
     try:
@@ -120,12 +123,10 @@ def serialFunction(
             unformattedData, retHexData, retAsciiData = readSerialData(dev, logger)
             
             # Track if we got a new sample
-            got_new_sample = False
             if retAsciiData is not None:
                 # Store sample
                 samples.append(retAsciiData)
                 sample_count += 1
-                got_new_sample = True
                 # Add to recent samples and keep only last 15
                 recent_samples.append(retAsciiData)
                 if len(recent_samples) > 15:
@@ -143,15 +144,26 @@ def serialFunction(
             else:
                 status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
             
-            # Clear current status line and print new sample if we got one
-            if got_new_sample:
-                print(f"\r{' ' * 120}\r  [{sample_count:2d}] {retAsciiData}")
+            # Move cursor up to redraw area (if we've already drawn before)
+            if lines_drawn > 0:
+                print(f"\033[{lines_drawn}F", end="")
             
-            # Update status line in place using carriage return
-            print(f"\r{status:<120}", end="", flush=True)
+            # Print status line
+            print(f"{status:<120}")
+            
+            # Print recent samples (up to 15)
+            for i, sample in enumerate(recent_samples):
+                sample_num = sample_count - len(recent_samples) + i + 1
+                print(f"  [{sample_num:2d}] {sample:<100}")
+            
+            # Calculate how many lines we drew
+            lines_drawn = 1 + len(recent_samples)
+            
+            # Flush output
+            sys.stdout.flush()
         
         # Move past the display area
-        print("\n")
+        print()
         print(f"Test complete: {sample_count} samples collected")
         logger.info(f"Test complete: {sample_count} samples collected for '{test_header}'")
         
