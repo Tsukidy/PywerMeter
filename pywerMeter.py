@@ -1,6 +1,6 @@
 from pywerHelper import serialComm, excelHelper, dataCollector, menuHelper
 from pywerHelper.configHelper import ConfigManager
-from pywerHelper.timeUtils import parse_time_value, get_formatted_start_time
+from pywerHelper.timeUtils import parse_time_value, get_formatted_start_time, format_time_minutes
 import time
 import logging
 import os
