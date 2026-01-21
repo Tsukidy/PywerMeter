@@ -143,9 +143,9 @@ def serialFunction(
             else:
                 status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
             
-            # Print new sample on its own line when we get one
+            # Clear current status line and print new sample if we got one
             if got_new_sample:
-                print(f"  [{sample_count:2d}] {retAsciiData}")
+                print(f"\r{' ' * 120}\r  [{sample_count:2d}] {retAsciiData}")
             
             # Update status line in place using carriage return
             print(f"\r{status:<120}", end="", flush=True)
