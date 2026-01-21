@@ -135,23 +135,14 @@ def serialFunction(
             else:
                 status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
             
-            # Simple in-place update: only show status line + last few samples
-            # Calculate how many lines we need to clear (status + number of recent samples)
-            lines_to_display = 1 + len(recent_samples)  # 1 status line + sample lines
+            # Update status line in place using carriage return
+            print(f"\r{status:<120}", end="", flush=True)
             
-            if sample_count > 1:
-                # Move up and clear only the lines we previously printed
-                for _ in range(lines_to_display):
-                    print("\033[F\033[K", end="")
-            
-            # Print status line
-            print(status)
-            
-            # Print only the recent samples we have (no empty lines)
-            for i, sample in enumerate(recent_samples):
-                print(f"  [{i+1:2d}] {sample}")
-            
-            sys.stdout.flush()
+            # Print new sample on its own line (only when we get one)
+            if retAsciiData and retAsciiData not in recent_samples[:-1]:
+                print(f"\n  [{sample_count:2d}] {retAsciiData}")
+                # Move cursor back up to the status line
+                print("\033[F", end="")
         
         # Move past the display area
         print("\n")
