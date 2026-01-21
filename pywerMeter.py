@@ -346,11 +346,15 @@ def rerun_specific_test():
         print(f"\nNo Excel files found. Using default: {default_file}")
         filename = default_file
     
-    # Replace or append mode
+    # Replace or append mode - Always ask if file exists
     replace_mode = True
-    if os.path.exists(filename):
-        print(f"\n⚠️  File '{filename}' exists.")
-        print("\n[1] Replace - Overwrite column data")
+    file_exists = os.path.exists(filename)
+    
+    if file_exists:
+        print(f"\n{'='*60}")
+        print(f"⚠️  File '{filename}' exists.")
+        print(f"{'='*60}")
+        print("[1] Replace - Overwrite column data")
         print("[2] Append - Add below existing data")
         print("[x] Cancel")
         
@@ -358,19 +362,20 @@ def rerun_specific_test():
             mode_choice = input("\nSelect mode: ").strip()
             if mode_choice == '1':
                 replace_mode = True
-                print(f"\n⚠️  Will replace data in '{filename}'")
+                print(f"\n⚠️  Will REPLACE data in '{filename}'")
                 logger.info("Mode: Replace")
                 break
             elif mode_choice == '2':
                 replace_mode = False
-                print(f"\n⚠️  Will append data to '{filename}'")
+                print(f"\n⚠️  Will APPEND data to '{filename}'")
                 logger.info("Mode: Append")
                 break
             elif mode_choice == 'x':
                 print("Cancelled.")
+                logger.info("User cancelled at mode selection")
                 return
             else:
-                print("Invalid option.")
+                print("Invalid option. Enter 1, 2, or x.")
     else:
         print(f"\n⚠️  File '{filename}' does not exist. Will create new file.")
         logger.info(f"File does not exist: {filename}")
