@@ -772,12 +772,6 @@ def initialize_excel_headers(test_headers_list, workbook_filename="power_measure
             ws[f'{tap_col_letter}2'] = formula
             ws[f'{tap_col_letter}2'].border = border_style
             
-            # Add "Total Annual Power" header in row 5 as well
-            ws[f'{tap_col_letter}5'] = 'Total Annual Power'
-            ws[f'{tap_col_letter}5'].font = Font(bold=True)
-            ws[f'{tap_col_letter}5'].alignment = Alignment(horizontal='center')
-            ws[f'{tap_col_letter}5'].border = border_style
-            
             logger.info(f"Added Total Annual Power column at {tap_col_letter}")
         else:
             logger.warning(f"Cannot add Total Annual Power - missing required columns. Found: {list(column_positions.keys())}")
