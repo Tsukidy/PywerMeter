@@ -5,6 +5,7 @@
 # Version: 1.0.0
 
 import time
+import sys
 import logging
 from typing import Optional, Tuple, List
 from . import serialComm
@@ -134,27 +135,24 @@ def serialFunction(
             else:
                 status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
             
-            # Use Windows-compatible method to update display
-            # Move cursor to beginning and clear with spaces
-            lines_to_clear = 16  # 1 status + 15 samples
-            
-            # Move cursor up if not first iteration
+            # Use carriage return method for in-place updates
+            # On first iteration, just print. On subsequent iterations, move cursor up
             if sample_count > 1:
-                for _ in range(lines_to_clear):
-                    print(f"\033[F", end="")  # Move cursor up one line
+                # Move cursor up to overwrite previous output (16 lines total: 1 status + 15 samples)
+                print("\033[16A", end="")
             
-            # Print status line
-            print(f"\r{status:<120}")  # Left-align and pad to 120 chars to clear previous text
+            # Print status line (with carriage return and padding to clear old text)
+            print(f"\r{status:<120}")
             
-            # Print recent samples
+            # Print recent samples (always print 15 lines for consistency)
             for i in range(15):
                 if i < len(recent_samples):
-                    print(f"  [{i+1:2d}] {recent_samples[i]:<100}")  # Pad to clear previous text
+                    print(f"  [{i+1:2d}] {recent_samples[i]:<100}")
                 else:
-                    print(f"{' ':<120}")  # Empty line padded with spaces
+                    print(f"{' ':<120}")  # Empty line to maintain spacing
             
-            # Flush output
-            print(end="", flush=True)
+            # Flush output to ensure immediate display
+            sys.stdout.flush()
         
         # Move past the display area
         print("\n")
