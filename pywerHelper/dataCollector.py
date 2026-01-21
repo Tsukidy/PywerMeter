@@ -114,10 +114,14 @@ def serialFunction(
     try:
         while time.time() < end_time:
             unformattedData, retHexData, retAsciiData = readSerialData(dev, logger, command=b'?MPOW')
-            if retAsciiData:
+            
+            # Track if we got a new sample
+            got_new_sample = False
+            if retAsciiData is not None:
                 # Store sample
                 samples.append(retAsciiData)
                 sample_count += 1
+                got_new_sample = True
                 # Add to recent samples and keep only last 15
                 recent_samples.append(retAsciiData)
                 if len(recent_samples) > 15:
@@ -135,14 +139,12 @@ def serialFunction(
             else:
                 status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
             
+            # Print new sample on its own line when we get one
+            if got_new_sample:
+                print(f"  [{sample_count:2d}] {retAsciiData}")
+            
             # Update status line in place using carriage return
             print(f"\r{status:<120}", end="", flush=True)
-            
-            # Print new sample on its own line (only when we get one)
-            if retAsciiData and retAsciiData not in recent_samples[:-1]:
-                print(f"\n  [{sample_count:2d}] {retAsciiData}")
-                # Move cursor back up to the status line
-                print("\033[F", end="")
         
         # Move past the display area
         print("\n")
