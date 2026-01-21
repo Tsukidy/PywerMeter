@@ -185,14 +185,27 @@ def run_power_tests():
             
             start_time_str = get_formatted_start_time(elapsed_time)
             
-            samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
-            
-            if samples:
-                print("Writing to Excel...")
-                excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time_str=start_time_str)
-            else:
-                print(f"No samples collected")
-                logger.warning(f"No samples: {test_header}")
+            samples = []
+            try:
+                samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
+                
+                if samples:
+                    print("Writing to Excel...")
+                    excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time_str=start_time_str)
+                else:
+                    print(f"No samples collected")
+                    logger.warning(f"No samples: {test_header}")
+                    
+            except KeyboardInterrupt:
+                # Still write whatever samples were collected before interruption
+                if samples:
+                    print("\nWriting collected samples to Excel before exit...")
+                    logger.info(f"Writing {len(samples)} samples after interruption")
+                    excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time_str=start_time_str)
+                    print(f"Wrote {len(samples)} samples to Excel.")
+                print("\nTest sequence interrupted by user.")
+                logger.info("Test sequence interrupted by user")
+                return
             
             elapsed_time = (time.time() - global_start_time) / 60
             
