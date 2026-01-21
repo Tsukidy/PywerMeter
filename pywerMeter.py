@@ -338,10 +338,7 @@ def rerun_specific_test():
                 print("Invalid option.")
         
         print("⚠️  Close Excel file before continuing!")
-        confirm = input("\nContinue? (y/N): ").strip().lower()
-        if confirm != 'y':
-            print("Cancelled.")
-            return
+        input("\nPress Enter to continue...")
     
     # Initialize timer
     global_start_time = time.time()

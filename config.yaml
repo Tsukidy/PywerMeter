@@ -24,7 +24,7 @@ test_settings:
   test_start_time_2: "10:00"   # Start at 10 minutes
   test_duration_2: "5:00"     # Run for 5 minutes
   test_fast_start_2: "Off"    # FastStart: "On" to start immediately in rerun tests
-  after_test_pause_2: true
+  after_test_pause_2: false
   # Long Idle
   test_excel_header_3: "Long Idle"
   test_start_time_3: "23:00"   # Start at 23 minutes
