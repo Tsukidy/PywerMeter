@@ -175,12 +175,12 @@ def run_power_tests():
                 elapsed_time = (time.time() - global_start_time) / 60
                 remaining = start_time - elapsed_time
                 if remaining > 0:
-                    print(f"\rGlobal: {elapsed_time:.2f} min | Waiting for {test_header} (starts {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
+                    print(f"\rGlobal: {format_time_minutes(elapsed_time)} | Waiting for {test_header} (starts {format_time_minutes(start_time)}, {format_time_minutes(remaining)} remaining)...", end="", flush=True)
                     time.sleep(1)
             
             elapsed_time = (time.time() - global_start_time) / 60
             
-            print(f"\n\n=== Starting: {test_header} at {elapsed_time:.2f} min ===")
+            print(f"\n\n=== Starting: {test_header} at {format_time_minutes(elapsed_time)} ===")
             logger.info(f"Starting {test_header} for {duration} min")
             
             start_time_str = get_formatted_start_time(elapsed_time)
@@ -210,7 +210,7 @@ def run_power_tests():
             elapsed_time = (time.time() - global_start_time) / 60
             
             if pause_after:
-                print(f"\nGlobal timer paused at {elapsed_time:.2f} min.")
+                print(f"\nGlobal timer paused at {format_time_minutes(elapsed_time)}.")
                 input("Press Enter to continue...")
                 global_start_time = time.time() - (elapsed_time * 60)
                 print("Timer resumed.\n")
@@ -219,7 +219,7 @@ def run_power_tests():
     
     final_elapsed = (time.time() - global_start_time) / 60
     print(f"\n========== All Tests Complete ==========")
-    print(f"Total time: {final_elapsed:.2f} minutes")
+    print(f"Total time: {format_time_minutes(final_elapsed)}")
     print(f"Data: {default_excel_file}\n")
     logger.info(f"Complete. Time: {final_elapsed:.2f} min")
 
@@ -353,7 +353,7 @@ def rerun_specific_test():
         off_start = parse_time_value(test_settings.get('test_start_time_1', 0))
         time_adjustment = off_start + off_duration
         
-        print(f"\n⚠️  'Off' test excluded. Adjusting times by -{time_adjustment:.2f} min")
+        print(f"\n⚠️  'Off' test excluded. Adjusting times by -{format_time_minutes(time_adjustment)}")
         logger.info(f"Time adjustment: -{time_adjustment:.2f} min")
     
     print("\n========== Starting Test Sequence ==========")
@@ -386,14 +386,14 @@ def rerun_specific_test():
             elapsed_time = (time.time() - global_start_time) / 60
             remaining = start_time - elapsed_time
             if remaining > 0:
-                print(f"\rGlobal: {elapsed_time:.2f} min | Waiting for '{test_header}' (starts {start_time:.2f} min, {remaining:.2f} min remaining)...", end="", flush=True)
+                print(f"\rGlobal: {format_time_minutes(elapsed_time)} | Waiting for '{test_header}' (starts {format_time_minutes(start_time)}, {format_time_minutes(remaining)} remaining)...", end="", flush=True)
                 time.sleep(1)
         
         elapsed_time = (time.time() - global_start_time) / 60
         
         print(f"\n\n=== Running: {test_header} ===")
-        print(f"Starting: {elapsed_time:.2f} min")
-        print(f"Duration: {duration:.2f} min")
+        print(f"Starting: {format_time_minutes(elapsed_time)}")
+        print(f"Duration: {format_time_minutes(duration)}")
         logger.info(f"Rerunning {test_header} for {duration} min")
         
         start_time_str = get_formatted_start_time(elapsed_time)
@@ -413,7 +413,7 @@ def rerun_specific_test():
         elapsed_time = (time.time() - global_start_time) / 60
         
         if pause_after:
-            print(f"\nTimer paused at {elapsed_time:.2f} min.")
+            print(f"\nTimer paused at {format_time_minutes(elapsed_time)}.")
             input("Press Enter to continue...")
             global_start_time = time.time() - (elapsed_time * 60)
             print("Timer resumed.\n")
@@ -422,7 +422,7 @@ def rerun_specific_test():
     
     final_elapsed = (time.time() - global_start_time) / 60
     print(f"\n========== All Tests Complete ==========")
-    print(f"Total time: {final_elapsed:.2f} min\n")
+    print(f"Total time: {format_time_minutes(final_elapsed)}\n")
 
 
 def loggingSetup():

@@ -9,6 +9,7 @@ import sys
 import logging
 from typing import Optional, Tuple, List
 from . import serialComm
+from .timeUtils import format_time_minutes
 
 
 def initSerialDevice(logger: logging.Logger) -> Optional[serialComm.SerialDevice]:
@@ -111,7 +112,7 @@ def serialFunction(
     samples: List[str] = []  # Store all samples for this test
     recent_samples: List[str] = []  # Keep track of last 15 samples for display
     
-    print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
+    print(f"Reading serial data for {format_time_minutes(minutes)}. Test: {test_header}")
     logger.info(f"Starting data collection: {minutes:.2f} minutes for test '{test_header}'")
     
     # Initialize display
@@ -140,9 +141,9 @@ def serialFunction(
             # Calculate global elapsed time if global timer was provided
             if global_timer_start:
                 global_elapsed = (current_time - global_timer_start) / 60
-                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
+                status = f"Test Progress: {format_time_minutes(test_elapsed)}/{format_time_minutes(minutes)} | Remaining: {format_time_minutes(test_remaining)} | Global Timer: {format_time_minutes(global_elapsed)} | Samples: {sample_count}"
             else:
-                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
+                status = f"Test Progress: {format_time_minutes(test_elapsed)}/{format_time_minutes(minutes)} | Remaining: {format_time_minutes(test_remaining)} | Samples: {sample_count}"
             
             # Move cursor up to redraw area (if we've already drawn before)
             if lines_drawn > 0:
