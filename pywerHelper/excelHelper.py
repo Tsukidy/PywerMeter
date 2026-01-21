@@ -740,6 +740,48 @@ def initialize_excel_headers(test_headers_list, workbook_filename="power_measure
             header_cell.alignment = Alignment(horizontal='center')
             header_cell.border = border_style
         
+        # Add Total Annual Power column after the test columns
+        tap_col_idx = num_cols + 1
+        tap_col_letter = get_column_letter(tap_col_idx)
+        
+        # Find column positions for the formula (case-insensitive match)
+        column_positions = {}
+        for col_idx, header in enumerate(test_headers_list, start=1):
+            header_normalized = header.lower().replace(' ', '')
+            if header_normalized in ['off', 'shortidle', 'longidle', 'sleep']:
+                column_positions[header_normalized] = col_idx
+        
+        # Only add Total Annual Power if all required columns exist
+        if len(column_positions) == 4:
+            # Add "Total Annual Power" header in row 1
+            ws[f'{tap_col_letter}1'] = 'Total Annual Power'
+            ws[f'{tap_col_letter}1'].font = Font(bold=True)
+            ws[f'{tap_col_letter}1'].alignment = Alignment(horizontal='center')
+            ws[f'{tap_col_letter}1'].border = border_style
+            
+            # Set column width
+            ws.column_dimensions[tap_col_letter].width = 22
+            
+            # Add formula in row 2 (averages row)
+            off_letter = get_column_letter(column_positions['off'])
+            shortidle_letter = get_column_letter(column_positions['shortidle'])
+            longidle_letter = get_column_letter(column_positions['longidle'])
+            sleep_letter = get_column_letter(column_positions['sleep'])
+            
+            formula = f'=8760/1000*({off_letter}2*0.15+{sleep_letter}2*0.45+{longidle_letter}2*0.1+{shortidle_letter}2*0.3)'
+            ws[f'{tap_col_letter}2'] = formula
+            ws[f'{tap_col_letter}2'].border = border_style
+            
+            # Add "Total Annual Power" header in row 5 as well
+            ws[f'{tap_col_letter}5'] = 'Total Annual Power'
+            ws[f'{tap_col_letter}5'].font = Font(bold=True)
+            ws[f'{tap_col_letter}5'].alignment = Alignment(horizontal='center')
+            ws[f'{tap_col_letter}5'].border = border_style
+            
+            logger.info(f"Added Total Annual Power column at {tap_col_letter}")
+        else:
+            logger.warning(f"Cannot add Total Annual Power - missing required columns. Found: {list(column_positions.keys())}")
+        
         # Row 6+: Data rows (will be filled when tests run)
         
         # Save the workbook

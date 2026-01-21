@@ -1,8 +1,16 @@
 from pywerHelper import serialComm, excelHelper, dataCollector, menuHelper
 import time, logging, os, yaml
 import sys
+from datetime import datetime
 from tkinter import filedialog
 import tkinter as tk
+
+# Try to import pytz for timezone support
+try:
+    import pytz
+    PYTZ_AVAILABLE = True
+except ImportError:
+    PYTZ_AVAILABLE = False
 
 # Store the script's directory for config loading
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -214,17 +222,7 @@ def run_power_tests():
             logger.info(f"Starting Test {test_num}: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
             
             # Capture actual start time with both EST clock time and global timer
-            from datetime import datetime
-            import pytz
-            try:
-                est = pytz.timezone('US/Eastern')
-                actual_start_time = datetime.now(est)
-                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
-            except:
-                # Fallback if pytz not available
-                actual_start_time = datetime.now()
-                start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
-            
+            start_time_str = get_formatted_start_time(elapsed_time)
             logger.info(f"Test start time recorded as: {start_time_str}")
             
             # Run test and collect samples
@@ -259,67 +257,9 @@ def run_power_tests():
     
     final_elapsed = (time.time() - global_start_time) / 60
     print(f"\n========== All Tests Complete ==========")
-    print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
+    print(f"Total elapsed time: {final_elapsed:.2f} minutes")
+    print(f"Data written to: {default_excel_file}\n")
     logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
-    
-    # Ask if user wants to add power calculations
-    print("⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
-    print("\nWould you like to add power calculations to the Excel file?")
-    print("[1] Add Averages Only")
-    print("[2] Add Total Annual Power Only")
-    print("[3] Add Both (Averages + Total Annual Power)")
-    print("[4] Skip - No calculations")
-    
-    while True:
-        calc_choice = input("\nSelect option: ").strip()
-        
-        if calc_choice in ['1', '2', '3', '4']:
-            break
-        else:
-            print("Invalid option. Please select 1-4.")
-    
-    if calc_choice != '4':
-        try:
-            calc = excelHelper.PowerCalc(default_excel_file, "Power Data")
-            
-            if calc_choice == '1':
-                print("\nAdding averages...")
-                logger.info(f"Adding averages to {default_excel_file}")
-                if calc.add_averages():
-                    print("✓ Averages added successfully!")
-                else:
-                    print("✗ Failed to add averages.")
-                    
-            elif calc_choice == '2':
-                print("\nAdding Total Annual Power...")
-                logger.info(f"Adding Total Annual Power to {default_excel_file}")
-                if calc.totalAnnualPower():
-                    print("✓ Total Annual Power added successfully!")
-                else:
-                    print("✗ Failed to add Total Annual Power.")
-                    
-            elif calc_choice == '3':
-                print("\nAdding averages...")
-                logger.info(f"Adding averages and Total Annual Power to {default_excel_file}")
-                if calc.add_averages():
-                    print("✓ Averages added successfully!")
-                    # Reload for totalAnnualPower
-                    calc2 = excelHelper.PowerCalc(default_excel_file, "Power Data")
-                    print("Adding Total Annual Power...")
-                    if calc2.totalAnnualPower():
-                        print("✓ Total Annual Power added successfully!")
-                    else:
-                        print("✗ Failed to add Total Annual Power.")
-                else:
-                    print("✗ Failed to add averages.")
-        except Exception as e:
-            print(f"ERROR: Failed to perform calculations: {e}")
-            logger.error(f"Failed to perform Excel calculations: {e}", exc_info=True)
-    else:
-        print("\nSkipping power calculations.")
-        logger.info("User skipped power calculations")
-    
-    print()
 
 def rerun_specific_test():
     """Allow user to select and rerun specific tests, with options for single or combined tests."""
@@ -528,16 +468,7 @@ def rerun_specific_test():
         logger.info(f"Rerunning test: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
         
         # Capture start time
-        from datetime import datetime
-        import pytz
-        try:
-            est = pytz.timezone('US/Eastern')
-            actual_start_time = datetime.now(est)
-            start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
-        except:
-            # Fallback if pytz not available
-            actual_start_time = datetime.now()
-            start_time_str = f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_time:.2f} min"
+        start_time_str = get_formatted_start_time(elapsed_time)
         
         # Always pass global_start_time for consistent timing display
         samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
@@ -574,6 +505,28 @@ def rerun_specific_test():
     print(f"\n========== All Selected Tests Complete ==========")
     print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
     logger.info(f"All rerun tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
+
+def get_formatted_start_time(elapsed_minutes):
+    """
+    Get formatted start time string with clock time and elapsed minutes.
+    
+    Args:
+        elapsed_minutes (float): Elapsed time in minutes from global timer start
+        
+    Returns:
+        str: Formatted string like "14:30:15 / 5.50 min"
+    """
+    if PYTZ_AVAILABLE:
+        try:
+            est = pytz.timezone('US/Eastern')
+            actual_start_time = datetime.now(est)
+        except:
+            actual_start_time = datetime.now()
+    else:
+        actual_start_time = datetime.now()
+    
+    return f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_minutes:.2f} min"
+
 
 def parse_time_value(time_value):
     """
