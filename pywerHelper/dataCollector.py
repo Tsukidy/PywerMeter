@@ -135,24 +135,24 @@ def serialFunction(
             else:
                 status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
             
-            # Use carriage return method for in-place updates
-            # On first iteration, just print. On subsequent iterations, move cursor up
-            if sample_count > 1:
-                # Move cursor up to overwrite previous output (16 lines total: 1 status + 15 samples)
-                print("\033[16A", end="")
-            
-            # Print status line (with carriage return and padding to clear old text)
-            print(f"\r{status:<120}")
-            
-            # Print recent samples (always print 15 lines for consistency)
+            # Use simple carriage return for single-line updates (more reliable across terminals)
+            # Build complete output with status and recent samples
+            output_lines = [status]
             for i in range(15):
                 if i < len(recent_samples):
-                    print(f"  [{i+1:2d}] {recent_samples[i]:<100}")
+                    output_lines.append(f"  [{i+1:2d}] {recent_samples[i]}")
                 else:
-                    print(f"{' ':<120}")  # Empty line to maintain spacing
+                    output_lines.append("")  # Empty line
             
-            # Flush output to ensure immediate display
-            sys.stdout.flush()
+            # Clear previous output and print new output
+            if sample_count == 1:
+                # First time - just print
+                print("\n".join(output_lines), flush=True)
+            else:
+                # Clear previous lines (move up 16 lines and clear each)
+                for _ in range(16):
+                    print("\033[F\033[K", end="")  # Move up one line and clear it
+                print("\n".join(output_lines), flush=True)
         
         # Move past the display area
         print("\n")

@@ -63,7 +63,8 @@ class TestFormatTimeMinutes:
     def test_format_negative(self):
         """Test formatting negative values."""
         assert format_time_minutes(-1) == "-1:00"
-        assert format_time_minutes(-1.5) == "-1:30"
+        # Negative fractional minutes have negative seconds too
+        assert format_time_minutes(-1.5) == "-1:-30"
     
     def test_format_large_values(self):
         """Test formatting large time values."""

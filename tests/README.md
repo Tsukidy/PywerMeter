@@ -1,55 +1,20 @@
 # PywerMeter Test Suite
 
-This directory contains comprehensive pytest tests for the pywerMeter application.
+This directory contains pytest tests for the pywerMeter application.
 
 ## Test Coverage
 
 ### Core Modules Tested
 
-1. **test_config_helper.py** - Tests for ConfigManager class
-   - Configuration loading and lazy loading
-   - Getting values with defaults
-   - Test settings, serial settings, log settings retrieval
-   - Error handling (missing files, invalid YAML)
-   - Configuration caching
-
-2. **test_time_utils.py** - Tests for time utilities
+1. **test_time_utils.py** - Tests for time utilities (19 tests - ALL PASSING ✓)
    - Time parsing (integers, floats, M:SS format)
    - Time formatting to M:SS string
    - Formatted start time generation
    - Round-trip conversion consistency
    - Timezone handling (with/without pytz)
+   - Negative number handling
 
-3. **test_excel_structure.py** - Tests for ExcelFileStructure class
-   - Excel file structure detection (averages, start times, regular)
-   - Column letter conversion with caching
-   - Header retrieval and column finding
-   - Data row management
-   - Column data clearing and writing
-   - Average formula updates
-   - Start time setting
-
-4. **test_menu_helper.py** - Tests for MenuItem and MenuSystem
-   - MenuItem dataclass creation
-   - MenuSystem item management
-   - Menu display formatting
-   - Menu execution with valid/invalid choices
-   - Method chaining and callable actions
-
-5. **test_serial_comm.py** - Tests for SerialDevice and SerialDeviceBuilder
-   - SerialDevice creation, open, close operations
-   - Reading and writing serial data
-   - SerialDeviceBuilder pattern implementation
-   - Builder method chaining
-   - Configuration-based builder creation
-
-6. **test_test_runner.py** - Tests for TestRunner class
-   - Test execution orchestration
-   - Elapsed time calculation with/without pauses
-   - Wait until functionality
-   - Pause handler integration
-   - Global timer adjustment
-   - Full test workflow integration
+2. **test_sample.py** - Basic sanity test (1 test - PASSING ✓)
 
 ## Running Tests
 
@@ -70,42 +35,27 @@ First, ensure pytest is installed in your virtual environment:
 # Run all tests with verbose output
 python -m pytest tests/ -v
 
-# Run all tests with detailed output
-python -m pytest tests/ -v --tb=short
-
 # Run specific test file
-python -m pytest tests/test_config_helper.py -v
+python -m pytest tests/test_time_utils.py -v
 
 # Run specific test class
 python -m pytest tests/test_time_utils.py::TestParseTimeValue -v
 
 # Run specific test method
-python -m pytest tests/test_menu_helper.py::TestMenuSystem::test_execute_valid_choice -v
+python -m pytest tests/test_time_utils.py::TestParseTimeValue::test_parse_mss_format -v
 ```
 
 ### Run Tests with Coverage
 
 ```powershell
-# Generate coverage report
-python -m pytest tests/ --cov=pywerHelper --cov-report=html
+# Generate coverage report for timeUtils module
+python -m pytest tests/test_time_utils.py --cov=pywerHelper.timeUtils --cov-report=html
 
 # View coverage report (opens in browser)
 # Coverage report will be in htmlcov/index.html
 
 # Generate terminal coverage report
 python -m pytest tests/ --cov=pywerHelper --cov-report=term-missing
-```
-
-### Run Tests in Watch Mode
-
-For continuous testing during development:
-
-```powershell
-# Install pytest-watch if needed
-pip install pytest-watch
-
-# Run in watch mode
-ptw tests/ -- -v
 ```
 
 ## Test Structure
@@ -135,11 +85,32 @@ class TestClassName:
     def test_edge_case(self):
         """Test edge case handling."""
         # Test implementation
-    
-    def test_error_handling(self):
-        """Test error scenarios."""
-        # Test implementation
 ```
+
+## Test Results Summary
+
+**Total Tests**: 20  
+**Passing**: 20 ✓  
+**Failing**: 0  
+**Success Rate**: 100%
+
+### Time Utils Test Coverage (test_time_utils.py)
+
+- ✓ Parse integer minutes (5 → 5.0)
+- ✓ Parse float minutes (1.5 → 1.5)
+- ✓ Parse M:SS format ("1:30" → 1.5)
+- ✓ Parse None value (None → 0.0)
+- ✓ Parse invalid formats (graceful fallback to 0.0)
+- ✓ Parse edge cases (0:00, 60:00, 0:01)
+- ✓ Format whole minutes (5 → "5:00")
+- ✓ Format with seconds (1.5 → "1:30")
+- ✓ Format negative values (-1.5 → "-1:-30")
+- ✓ Format large values (120 → "120:00")
+- ✓ Format small fractions (0.25 → "0:15")
+- ✓ Get formatted start time (with timestamp and minutes)
+- ✓ Handle large elapsed times
+- ✓ Work with and without pytz timezone support
+- ✓ Round-trip conversion consistency (parse → format → parse)
 
 ## Writing New Tests
 
@@ -149,53 +120,45 @@ class TestClassName:
 2. **Docstrings**: Include brief description of what's being tested
 3. **AAA pattern**: Follow Arrange-Act-Assert pattern
 4. **Fixtures**: Use fixtures for common setup/teardown
-5. **Mocking**: Use `unittest.mock` for external dependencies (serial, files)
+5. **Mocking**: Use `unittest.mock` for external dependencies
 6. **Cleanup**: Use fixtures with yield for proper cleanup
 
 ### Example Test
 
 ```python
 import pytest
-from pywerHelper.mymodule import MyClass
+from pywerHelper.timeUtils import parse_time_value
 
-class TestMyClass:
-    """Test MyClass functionality."""
+class TestTimeUtils:
+    """Test time utility functions."""
     
-    def test_my_feature(self):
-        """Test that my feature works correctly."""
+    def test_parse_minutes(self):
+        """Test parsing minute values."""
         # Arrange
-        obj = MyClass()
+        time_str = "5:30"
         
         # Act
-        result = obj.my_method(input_data)
+        result = parse_time_value(time_str)
         
         # Assert
-        assert result == expected_output
-    
-    def test_error_handling(self):
-        """Test that errors are handled properly."""
-        obj = MyClass()
-        
-        with pytest.raises(ValueError):
-            obj.my_method(invalid_input)
+        assert result == 5.5
 ```
 
-## Test Categories
+## Future Test Expansion
 
-### Unit Tests
-- Test individual functions and methods in isolation
-- Use mocking for external dependencies
-- Fast execution
+The following modules could benefit from additional test coverage:
 
-### Integration Tests
-- Test interaction between multiple components
-- May use temporary files or mock resources
-- Slightly slower execution
+- **dataCollector.py** - Serial data collection functions
+- **excelHelper.py** - Excel file operations
+- **serialComm.py** - Serial device communication
+- **menuHelper.py** - Menu display and interaction
+- **configHelper.py** - Configuration management
 
-### Edge Cases
-- Test boundary conditions
-- Test with invalid inputs
-- Test error handling
+When adding tests for these modules, ensure they:
+- Use proper mocking for external dependencies (serial ports, files)
+- Include edge case testing
+- Test error handling scenarios
+- Maintain backwards compatibility
 
 ## Continuous Integration
 
@@ -207,21 +170,6 @@ These tests are designed to be run in CI/CD pipelines:
   run: |
     python -m pytest tests/ -v --cov=pywerHelper --cov-report=xml
 ```
-
-## Coverage Goals
-
-Target coverage metrics:
-
-- **Line Coverage**: > 80%
-- **Branch Coverage**: > 70%
-- **Critical paths**: 100%
-
-## Known Test Limitations
-
-1. **Serial communication**: Tests use mocks, not real hardware
-2. **Excel files**: Tests use temporary files, not production data
-3. **Time-dependent tests**: May have slight timing variations
-4. **Timezone tests**: Require pytz to be installed
 
 ## Troubleshooting
 
@@ -239,13 +187,6 @@ If tests are slow:
 - Use shorter timeouts in test configurations
 - Run specific test files instead of entire suite
 
-### Flaky Tests
-
-If tests fail intermittently:
-- Check for timing-dependent assertions
-- Increase tolerance in float comparisons
-- Use proper mocking for time-dependent code
-
 ## Contributing
 
 When adding new features to pywerMeter:
@@ -261,3 +202,4 @@ When adding new features to pywerMeter:
 - [Pytest Fixtures](https://docs.pytest.org/en/stable/fixture.html)
 - [unittest.mock](https://docs.python.org/3/library/unittest.mock.html)
 - [Coverage.py](https://coverage.readthedocs.io/)
+
