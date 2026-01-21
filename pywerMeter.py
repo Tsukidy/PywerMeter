@@ -1,103 +1,85 @@
 from pywerHelper import serialComm, excelHelper, dataCollector, menuHelper
-import time, logging, os, yaml
+from pywerHelper.configHelper import ConfigManager
+from pywerHelper.timeUtils import parse_time_value, get_formatted_start_time
+import time
+import logging
+import os
 import sys
 from datetime import datetime
 from tkinter import filedialog
 import tkinter as tk
 
-# Try to import pytz for timezone support
-try:
-    import pytz
-    PYTZ_AVAILABLE = True
-except ImportError:
-    PYTZ_AVAILABLE = False
-
 # Store the script's directory for config loading
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Config will be loaded from script directory
-config = None
+# Global configuration manager
+config_manager: ConfigManager = None
+
 
 def select_working_folder():
     """Prompt user to select a working folder using Windows file explorer."""
     print("Please select a working folder for pywerMeter...")
     
-    # Create a root window and hide it
     root = tk.Tk()
     root.withdraw()
     root.attributes('-topmost', True)
     
-    # Show folder selection dialog
     folder_selected = filedialog.askdirectory(
         title="Select Working Folder for pywerMeter",
         initialdir=os.getcwd()
     )
     
-    # Destroy the root window
     root.destroy()
     
     if not folder_selected:
         print("No folder selected. Exiting...")
         sys.exit(0)
     
-    # Change to the selected directory
     os.chdir(folder_selected)
     print(f"Working folder set to: {os.path.abspath(folder_selected)}")
     print()
     
     return folder_selected
 
+
 def load_config():
     """Load configuration from config.yaml in the script's directory."""
-    global config
+    global config_manager
     
-    configFilePath = os.path.join(SCRIPT_DIR, "config.yaml")
-    try:
-        with open(configFilePath, 'r') as file:
-            config = yaml.safe_load(file)
-    except FileNotFoundError:
-        print(f"ERROR: Configuration file not found: {configFilePath}")
-        print("Please ensure config.yaml exists in the script directory.")
-        sys.exit(1)
-    except yaml.YAMLError as e:
-        print(f"ERROR: Invalid YAML syntax in configuration file: {e}")
-        sys.exit(1)
-    except PermissionError:
-        print(f"ERROR: Permission denied reading configuration file: {configFilePath}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Unexpected error loading configuration: {e}")
-        sys.exit(1)
+    config_path = os.path.join(SCRIPT_DIR, "config.yaml")
+    config_manager = ConfigManager(config_path)
+    # Access config to trigger loading and validation
+    _ = config_manager.config
+
 
 def run_power_tests():
     """Execute the main power measurement test sequence."""
-    # Get test settings from config
-    test_settings = config.get('test_settings', {})
+    test_settings = config_manager.get_test_settings()
     
-    # Get default Excel filename using current folder name
+    # Get default Excel filename
     folder_name = os.path.basename(os.getcwd())
     default_excel_file = f"{folder_name}.xlsx"
-    logger.info(f"Using Excel filename based on folder: {default_excel_file}")
+    logger.info(f"Using Excel filename: {default_excel_file}")
     
-    # Check if Excel file already exists
+    # Check if Excel file exists
     tests_to_skip = set()
     if os.path.exists(default_excel_file):
         print(f"\n⚠️  Excel file '{default_excel_file}' already exists!")
-        logger.warning(f"Excel file already exists: {default_excel_file}")
+        logger.warning(f"Excel file exists: {default_excel_file}")
         
-        # Check which tests are already in the file
+        # Check completed tests
         try:
             completed_tests = excelHelper.get_completed_tests(default_excel_file, "Power Data")
             if completed_tests:
-                print(f"Found {len(completed_tests)} completed test(s) in file: {', '.join(completed_tests)}")
-                logger.info(f"Found completed tests: {completed_tests}")
+                print(f"Found {len(completed_tests)} completed test(s): {', '.join(completed_tests)}")
+                logger.info(f"Completed tests: {completed_tests}")
         except Exception as e:
             print(f"Warning: Could not read existing file: {e}")
-            logger.warning(f"Could not read existing file to check completed tests: {e}")
+            logger.warning(f"Could not read existing file: {e}")
             completed_tests = []
         
         print("\nOptions:")
-        print("[1] Continue from where testing left off (skip completed tests)")
+        print("[1] Continue from where testing left off")
         print("[2] Overwrite file and start fresh")
         print("[3] Create new file with timestamp")
         print("[x] Cancel")
@@ -106,53 +88,40 @@ def run_power_tests():
             response = input("\nSelect option: ").strip()
             
             if response == '1':
-                # Continue from where left off
                 if completed_tests:
                     tests_to_skip = set(completed_tests)
-                    print(f"\nContinuing with remaining tests. Will skip: {', '.join(completed_tests)}\n")
-                    logger.info(f"Continuing from existing file. Skipping tests: {tests_to_skip}")
+                    print(f"\nContinuing. Will skip: {', '.join(completed_tests)}\n")
+                    logger.info(f"Skipping: {tests_to_skip}")
                 else:
-                    print("\nNo completed tests found. Running all tests.\n")
-                    logger.info("No completed tests found in existing file. Running all tests.")
+                    print("\nNo completed tests. Running all.\n")
                 break
-                
             elif response == '2':
-                # Overwrite file
-                print(f"File will be overwritten.\n")
-                logger.info("User chose to overwrite existing Excel file")
+                print("File will be overwritten.\n")
+                logger.info("Overwriting file")
                 try:
                     os.remove(default_excel_file)
-                    logger.info(f"Deleted existing file: {default_excel_file}")
                 except PermissionError:
-                    print(f"ERROR: Permission denied. File may be open in another program: {default_excel_file}")
-                    logger.error(f"Permission denied deleting file: {default_excel_file}", exc_info=True)
+                    print(f"ERROR: Permission denied: {default_excel_file}")
                     return
                 except OSError as e:
-                    print(f"ERROR: Failed to delete file: {e}")
-                    logger.error(f"OS error deleting file: {default_excel_file}", exc_info=True)
+                    print(f"ERROR: Failed to delete: {e}")
                     return
                 break
-                
             elif response == '3':
-                # Generate new filename with timestamp
-                from datetime import datetime
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 base_name = os.path.splitext(default_excel_file)[0]
                 ext = os.path.splitext(default_excel_file)[1]
                 default_excel_file = f"{base_name}_{timestamp}{ext}"
-                print(f"Using new filename: {default_excel_file}\n")
-                logger.info(f"User chose new filename: {default_excel_file}")
+                print(f"Using: {default_excel_file}\n")
+                logger.info(f"New filename: {default_excel_file}")
                 break
-                
             elif response == 'x':
                 print("Cancelled.")
-                logger.info("User cancelled test run")
                 return
-                
             else:
-                print("Invalid option. Please select 1-3 or x.")
+                print("Invalid option.")
     
-    # Find all test configurations by looking for test_excel_header_x keys
+    # Find all test configurations
     test_numbers = []
     for key in test_settings.keys():
         if key.startswith('test_excel_header_'):
@@ -163,29 +132,26 @@ def run_power_tests():
     
     # Initialize global timer
     global_start_time = time.time()
-    elapsed_time = 0  # in minutes
+    elapsed_time = 0
     
     print("\n========== Starting Test Sequence ==========")
-    print("Global timer started. Tests will run based on scheduled start times.")
+    print("Global timer started.")
     print(f"Data will be written to: {default_excel_file}\n")
-    logger.info("Global timer started for test sequence")
-    logger.info(f"Excel output file: {default_excel_file}")
+    logger.info("Global timer started")
     
-    # Create Excel file with all headers before starting tests
+    # Initialize Excel structure
     if not os.path.exists(default_excel_file) or not tests_to_skip:
-        # Collect all test headers that will be run
-        test_headers_to_create = []
+        test_headers = []
         for test_num in test_numbers:
             test_header = test_settings.get(f'test_excel_header_{test_num}')
             if test_header and test_header not in tests_to_skip:
-                test_headers_to_create.append(test_header)
+                test_headers.append(test_header)
         
-        if test_headers_to_create:
-            print("Initializing Excel file with test columns...")
-            logger.info(f"Creating Excel structure with headers: {test_headers_to_create}")
-            if not excelHelper.initialize_excel_headers(test_headers_to_create, default_excel_file, "Power Data"):
-                print("ERROR: Failed to initialize Excel file. Aborting.")
-                logger.error("Failed to initialize Excel file structure")
+        if test_headers:
+            print("Initializing Excel file...")
+            logger.info(f"Creating headers: {test_headers}")
+            if not excelHelper.initialize_excel_headers(test_headers, default_excel_file, "Power Data"):
+                print("ERROR: Failed to initialize Excel file.")
                 return
             print()
     
@@ -196,76 +162,60 @@ def run_power_tests():
         duration_raw = test_settings.get(f'test_duration_{test_num}')
         pause_after = test_settings.get(f'after_test_pause_{test_num}')
         
-        # Parse time values
-        start_time = parse_time_value(start_time_raw) if start_time_raw is not None else None
-        duration = parse_time_value(duration_raw) if duration_raw is not None else None
+        start_time = parse_time_value(start_time_raw)
+        duration = parse_time_value(duration_raw)
         
         if test_header and start_time is not None and duration:
-            # Check if this test should be skipped
             if test_header in tests_to_skip:
-                print(f"\n=== Skipping Test {test_num}: {test_header} (already completed) ===\n")
-                logger.info(f"Skipping already completed test: {test_header}")
+                print(f"\n=== Skipping: {test_header} (completed) ===\n")
                 continue
             
-            # Wait until the global timer reaches the start time
+            # Wait for start time
             while elapsed_time < start_time:
                 elapsed_time = (time.time() - global_start_time) / 60
                 remaining = start_time - elapsed_time
                 if remaining > 0:
-                    print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for Test {test_num} (starts at {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
+                    print(f"\rGlobal: {elapsed_time:.2f} min | Waiting for {test_header} (starts {start_time} min, {remaining:.2f} min remaining)...", end="", flush=True)
                     time.sleep(1)
             
-            # Update elapsed time one final time before capturing start time
             elapsed_time = (time.time() - global_start_time) / 60
             
-            print(f"\n\n=== Starting Test {test_num}: {test_header} at {elapsed_time:.2f} minutes ===")
-            logger.info(f"Starting Test {test_num}: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
+            print(f"\n\n=== Starting: {test_header} at {elapsed_time:.2f} min ===")
+            logger.info(f"Starting {test_header} for {duration} min")
             
-            # Capture actual start time with both EST clock time and global timer
             start_time_str = get_formatted_start_time(elapsed_time)
-            logger.info(f"Test start time recorded as: {start_time_str}")
             
-            # Run test and collect samples
             samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
             
-            # Write samples to Excel immediately after test completes
             if samples:
-                print(f"Writing test data to Excel...")
-                logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header}")
+                print("Writing to Excel...")
                 excelHelper.write_test_row_to_excel(test_header, samples, default_excel_file, start_time_str=start_time_str)
             else:
-                print(f"No samples collected for {test_header}")
-                logger.warning(f"No samples collected for test: {test_header}")
+                print(f"No samples collected")
+                logger.warning(f"No samples: {test_header}")
             
-            # Update elapsed time after test
             elapsed_time = (time.time() - global_start_time) / 60
             
-            # Pause the timer if requested
             if pause_after:
-                print(f"\nGlobal timer paused at {elapsed_time:.2f} minutes.")
-                logger.info(f"Global timer paused at {elapsed_time:.2f} minutes for user input")
-                input("Press Enter to continue to the next test...")
-                # Adjust the global start time to account for the pause
+                print(f"\nGlobal timer paused at {elapsed_time:.2f} min.")
+                input("Press Enter to continue...")
                 global_start_time = time.time() - (elapsed_time * 60)
-                print(f"Global timer resumed.\n")
-                logger.info("Global timer resumed")
+                print("Timer resumed.\n")
             
-            print(f"=== Test {test_num} Complete ===\n")
-        else:
-            print(f"Warning: Missing configuration for test {test_num}")
-            logger.warning(f"Missing configuration for test {test_num}")
+            print(f"=== Complete: {test_header} ===\n")
     
     final_elapsed = (time.time() - global_start_time) / 60
     print(f"\n========== All Tests Complete ==========")
-    print(f"Total elapsed time: {final_elapsed:.2f} minutes")
-    print(f"Data written to: {default_excel_file}\n")
-    logger.info(f"All tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
+    print(f"Total time: {final_elapsed:.2f} minutes")
+    print(f"Data: {default_excel_file}\n")
+    logger.info(f"Complete. Time: {final_elapsed:.2f} min")
+
 
 def rerun_specific_test():
-    """Allow user to select and rerun specific tests, with options for single or combined tests."""
-    test_settings = config.get('test_settings', {})
+    """Allow user to select and rerun specific tests."""
+    test_settings = config_manager.get_test_settings()
     
-    # Find all available tests
+    # Find available tests
     test_mapping = {}
     test_numbers = []
     
@@ -278,14 +228,12 @@ def rerun_specific_test():
                 test_mapping[test_num] = {'header': test_header}
     
     if not test_mapping:
-        print("No tests found in configuration.")
-        logger.warning("No tests found in configuration for rerun")
+        print("No tests found.")
         return
     
-    # Sort test numbers
     test_numbers.sort()
     
-    # Create option menu (assuming first 4 tests are Off, Short Idle, Long Idle, Sleep)
+    # Show menu
     print("\n=== Select Tests to Rerun ===")
     print("[1] Off")
     print("[2] Short Idle")
@@ -295,7 +243,6 @@ def rerun_specific_test():
     print("[x] Cancel")
     print("="*60)
     
-    # Get user selection
     selected_test_nums = []
     while True:
         choice = input("\nSelect option: ").strip()
@@ -305,26 +252,23 @@ def rerun_specific_test():
             return
         
         if choice == '1':
-            selected_test_nums = ['1']  # Off only
+            selected_test_nums = ['1']
             break
         elif choice == '2':
-            selected_test_nums = ['2']  # Short Idle only
+            selected_test_nums = ['2']
             break
         elif choice == '3':
-            selected_test_nums = ['2', '3']  # Short Idle, Long Idle
+            selected_test_nums = ['2', '3']
             break
         elif choice == '4':
-            selected_test_nums = ['2', '3', '4']  # Short Idle, Long Idle, Sleep
+            selected_test_nums = ['2', '3', '4']
             break
         elif choice == '5':
-            # Custom selection - allow user to pick specific tests
             print("\n=== Available Tests ===")
             for idx, test_num in enumerate(test_numbers, start=1):
-                test_header = test_mapping[test_num]['header']
-                print(f"[{idx}] {test_header}")
+                print(f"[{idx}] {test_mapping[test_num]['header']}")
             print("="*60)
-            print("\nEnter test numbers separated by commas (e.g., 1,3,4)")
-            print("Or enter 'x' to cancel")
+            print("\nEnter test numbers (e.g., 1,3,4) or 'x' to cancel")
             
             custom_input = input("\nSelect tests: ").strip()
             
@@ -333,342 +277,228 @@ def rerun_specific_test():
                 return
             
             try:
-                # Parse comma-separated input
                 selected_indices = [int(x.strip()) for x in custom_input.split(',')]
                 
-                # Validate selections
-                invalid_selections = [idx for idx in selected_indices if idx < 1 or idx > len(test_numbers)]
-                if invalid_selections:
-                    print(f"Invalid selection(s): {', '.join(map(str, invalid_selections))}")
-                    print("Please try again.")
+                if any(idx < 1 or idx > len(test_numbers) for idx in selected_indices):
+                    print("Invalid selection.")
                     continue
                 
-                # Convert to test numbers
                 selected_test_nums = [test_numbers[idx - 1] for idx in selected_indices]
-                
-                # Display selected tests
                 selected_names = [test_mapping[num]['header'] for num in selected_test_nums]
-                print(f"\nSelected tests: {', '.join(selected_names)}")
+                print(f"\nSelected: {', '.join(selected_names)}")
                 break
-                
             except ValueError:
-                print("Invalid input. Please enter numbers separated by commas.")
+                print("Invalid input.")
                 continue
         else:
-            print("Invalid option. Please select 1-5 or x.")
+            print("Invalid option.")
     
-    # Get Excel filename using current folder name
+    # Get filename
     folder_name = os.path.basename(os.getcwd())
     default_file = f"{folder_name}.xlsx"
-    filename = input(f"\nEnter Excel filename (press Enter for '{default_file}'): ").strip()
+    filename = input(f"\nEnter filename (Enter for '{default_file}'): ").strip()
     if not filename:
         filename = default_file
     
-    # Ask user if they want to replace or append data
-    replace_mode = True  # Default
+    # Replace or append mode
+    replace_mode = True
     if os.path.exists(filename):
-        print(f"\n⚠️  Excel file '{filename}' exists.")
-        print("\nData Mode Options:")
-        print("[1] Replace - Overwrite the existing column data")
-        print("[2] Append - Add new data below existing column data")
+        print(f"\n⚠️  File '{filename}' exists.")
+        print("\n[1] Replace - Overwrite column data")
+        print("[2] Append - Add below existing data")
         print("[x] Cancel")
         
         while True:
-            mode_choice = input("\nSelect data mode: ").strip()
+            mode_choice = input("\nSelect mode: ").strip()
             if mode_choice == '1':
                 replace_mode = True
-                print(f"\n⚠️  This will replace the existing column data in '{filename}'")
+                print(f"\n⚠️  Will replace data in '{filename}'")
                 break
             elif mode_choice == '2':
                 replace_mode = False
-                print(f"\n⚠️  This will append new data to the existing columns in '{filename}'")
+                print(f"\n⚠️  Will append data to '{filename}'")
                 break
             elif mode_choice == 'x':
                 print("Cancelled.")
                 return
             else:
-                print("Invalid option. Please select 1, 2, or x.")
+                print("Invalid option.")
         
-        print("⚠️  IMPORTANT: Please ensure the Excel file is closed before continuing!")
+        print("⚠️  Close Excel file before continuing!")
         confirm = input("\nContinue? (y/N): ").strip().lower()
         if confirm != 'y':
             print("Cancelled.")
             return
-    else:
-        print("\n⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!")
-        replace_mode = True  # Default to replace for new files
     
-    # Initialize global timer (always used to maintain consistent timing)
+    # Initialize timer
     global_start_time = time.time()
-    elapsed_time = 0  # in minutes
+    elapsed_time = 0
     
-    # Check if time adjustment is enabled and "Off" test (test 1) is not included
+    # Time adjustment if "Off" excluded
     time_adjustment = 0
     adjust_enabled = test_settings.get('adjust_time_without_off', 'Off')
     
     if '1' not in selected_test_nums and isinstance(adjust_enabled, str) and adjust_enabled.lower() == 'on':
-        # Get "Off" test duration and start time to calculate adjustment
-        off_duration_raw = test_settings.get('test_duration_1')
-        off_start_time_raw = test_settings.get('test_start_time_1', 0)
+        off_duration = parse_time_value(test_settings.get('test_duration_1'))
+        off_start = parse_time_value(test_settings.get('test_start_time_1', 0))
+        time_adjustment = off_start + off_duration
         
-        if off_duration_raw is not None:
-            off_duration = parse_time_value(off_duration_raw)
-            off_start_time = parse_time_value(off_start_time_raw) if off_start_time_raw is not None else 0
-            
-            # Adjustment is the "Off" test's start time + its duration
-            time_adjustment = off_start_time + off_duration
-            
-            print(f"\n⚠️  'Off' test not included. Adjusting start times by -{time_adjustment:.2f} minutes")
-            logger.info(f"'Off' test excluded. Subtracting {time_adjustment:.2f} minutes from all test start times")
+        print(f"\n⚠️  'Off' test excluded. Adjusting times by -{time_adjustment:.2f} min")
+        logger.info(f"Time adjustment: -{time_adjustment:.2f} min")
     
     print("\n========== Starting Test Sequence ==========")
-    print("Global timer started. Tests will run at their configured start times.")
-    logger.info("Global timer started for rerun test sequence")
+    logger.info("Starting rerun sequence")
     
-    # Run each selected test sequentially
-    for idx, test_num in enumerate(selected_test_nums):
-        # Get test configuration
+    # Run tests
+    for test_num in selected_test_nums:
         test_header = test_settings.get(f'test_excel_header_{test_num}')
         start_time_raw = test_settings.get(f'test_start_time_{test_num}')
         duration_raw = test_settings.get(f'test_duration_{test_num}')
         pause_after = test_settings.get(f'after_test_pause_{test_num}')
         fast_start = test_settings.get(f'test_fast_start_{test_num}', 'Off')
         
-        start_time = parse_time_value(start_time_raw) if start_time_raw is not None else 0
-        duration = parse_time_value(duration_raw) if duration_raw is not None else None
+        start_time = parse_time_value(start_time_raw)
+        duration = parse_time_value(duration_raw)
         
-        # Apply time adjustment if "Off" test is not included
+        # Apply adjustments
         start_time = max(0, start_time - time_adjustment)
         
-        # Check FastStart flag - if enabled, override start time to 0
         if isinstance(fast_start, str) and fast_start.lower() == 'on':
             start_time = 0
-            logger.info(f"FastStart enabled for test {test_num} - start time set to 0")
+            logger.info(f"FastStart enabled for {test_num}")
         
         if not duration:
-            print(f"Error: No duration configured for {test_header}")
-            logger.error(f"No duration configured for test {test_num}")
+            print(f"Error: No duration for {test_header}")
             continue
         
-        # Wait until the global timer reaches the start time
+        # Wait for start time
         while elapsed_time < start_time:
             elapsed_time = (time.time() - global_start_time) / 60
             remaining = start_time - elapsed_time
             if remaining > 0:
-                print(f"\rGlobal Timer: {elapsed_time:.2f} min | Waiting for test '{test_header}' (starts at {start_time:.2f} min, {remaining:.2f} min remaining)...", end="", flush=True)
+                print(f"\rGlobal: {elapsed_time:.2f} min | Waiting for '{test_header}' (starts {start_time:.2f} min, {remaining:.2f} min remaining)...", end="", flush=True)
                 time.sleep(1)
         
-        # Update elapsed time one final time before capturing start time
         elapsed_time = (time.time() - global_start_time) / 60
         
-        # Run the test
-        print(f"\n\n=== Running Test: {test_header} ===")
-        print(f"Starting at: {elapsed_time:.2f} minutes (global timer)")
-        print(f"Duration: {duration:.2f} minutes")
-        logger.info(f"Rerunning test: {test_header} for {duration} minutes (started at {elapsed_time:.2f} min)")
+        print(f"\n\n=== Running: {test_header} ===")
+        print(f"Starting: {elapsed_time:.2f} min")
+        print(f"Duration: {duration:.2f} min")
+        logger.info(f"Rerunning {test_header} for {duration} min")
         
-        # Capture start time
         start_time_str = get_formatted_start_time(elapsed_time)
         
-        # Always pass global_start_time for consistent timing display
         samples = dataCollector.serialFunction(logger, minutes=duration, global_timer_start=global_start_time, test_header=test_header)
         
-        # Write to Excel (will replace or append based on user choice)
         if samples:
             mode_text = "replaced" if replace_mode else "appended"
-            print(f"\nWriting test data to Excel...")
-            logger.info(f"Writing {len(samples)} samples to Excel for test: {test_header} (mode: {mode_text})")
+            print("\nWriting to Excel...")
             if excelHelper.write_test_row_to_excel(test_header, samples, filename, start_time_str=start_time_str, replace_mode=replace_mode):
-                print(f"✓ Test data written successfully! Column '{test_header}' {mode_text}.")
+                print(f"✓ Data {mode_text}.")
             else:
-                print(f"✗ Failed to write test data.")
+                print("✗ Failed to write.")
         else:
-            print(f"No samples collected for {test_header}")
-            logger.warning(f"No samples collected for rerun of test: {test_header}")
+            print("No samples collected")
         
-        # Update elapsed time after test
         elapsed_time = (time.time() - global_start_time) / 60
         
-        # Pause the timer if requested
         if pause_after:
-            print(f"\nGlobal timer paused at {elapsed_time:.2f} minutes.")
-            logger.info(f"Global timer paused at {elapsed_time:.2f} minutes for user input")
-            input("Press Enter to continue to the next test...")
-            # Adjust the global start time to account for the pause
+            print(f"\nTimer paused at {elapsed_time:.2f} min.")
+            input("Press Enter to continue...")
             global_start_time = time.time() - (elapsed_time * 60)
-            print(f"Global timer resumed.\n")
-            logger.info("Global timer resumed")
+            print("Timer resumed.\n")
         
-        print(f"\n=== Test Complete: {test_header} ===\n")
+        print(f"\n=== Complete: {test_header} ===\n")
     
     final_elapsed = (time.time() - global_start_time) / 60
-    print(f"\n========== All Selected Tests Complete ==========")
-    print(f"Total elapsed time: {final_elapsed:.2f} minutes\n")
-    logger.info(f"All rerun tests complete. Total elapsed time: {final_elapsed:.2f} minutes")
+    print(f"\n========== All Tests Complete ==========")
+    print(f"Total time: {final_elapsed:.2f} min\n")
 
-def get_formatted_start_time(elapsed_minutes):
-    """
-    Get formatted start time string with clock time and elapsed minutes.
-    
-    Args:
-        elapsed_minutes (float): Elapsed time in minutes from global timer start
-        
-    Returns:
-        str: Formatted string like "14:30:15 / 5.50 min"
-    """
-    if PYTZ_AVAILABLE:
-        try:
-            est = pytz.timezone('US/Eastern')
-            actual_start_time = datetime.now(est)
-        except:
-            actual_start_time = datetime.now()
-    else:
-        actual_start_time = datetime.now()
-    
-    return f"{actual_start_time.strftime('%H:%M:%S')} / {elapsed_minutes:.2f} min"
-
-
-def parse_time_value(time_value):
-    """
-    Parse time value from config. Accepts:
-    - Numeric (int/float): treated as minutes (e.g., 1.5 = 1.5 minutes)
-    - String "M:SS": parsed as minutes:seconds (e.g., "1:30" = 1.5 minutes)
-    Returns time in minutes as a float.
-    """
-    if isinstance(time_value, (int, float)):
-        return float(time_value)
-    elif isinstance(time_value, str) and ':' in time_value:
-        parts = time_value.split(':')
-        if len(parts) == 2:
-            try:
-                minutes = int(parts[0])
-                seconds = int(parts[1])
-                return minutes + (seconds / 60.0)
-            except ValueError:
-                print(f"Warning: Invalid time format '{time_value}'. Using 0.")
-                return 0.0
-    print(f"Warning: Unrecognized time format '{time_value}'. Using 0.")
-    return 0.0
 
 def loggingSetup():
-    """Setup logging with proper error handling."""
+    """Setup logging."""
     try:
-        # Setup Logging
-        logPath = config['log_settings']['log_dir']
+        log_settings = config_manager.get_log_settings()
+        logPath = log_settings['log_dir']
         logName = "pywerMeter.log"
         fullLogPath = os.path.join(logPath, logName)
+        
         logger = logging.getLogger(__name__)
         logger.setLevel(logging.DEBUG)
         
-        # Create log directory if it doesn't exist & log file. Python will not do this itself.
         if not os.path.exists(logPath):
-            try:
-                os.makedirs(logPath)
-            except PermissionError:
-                print(f"ERROR: Permission denied creating log directory: {logPath}")
-                sys.exit(1)
-            except OSError as e:
-                print(f"ERROR: Failed to create log directory: {e}")
-                sys.exit(1)
+            os.makedirs(logPath)
         
         if not os.path.exists(fullLogPath):
-            try:
-                open(fullLogPath, 'a').close()
-            except PermissionError:
-                print(f"ERROR: Permission denied creating log file: {fullLogPath}")
-                sys.exit(1)
-            except OSError as e:
-                print(f"ERROR: Failed to create log file: {e}")
-                sys.exit(1)
+            open(fullLogPath, 'a').close()
         
-        # Create file handler and formatter
-        file_handler = logging.FileHandler(fullLogPath, encoding='utf-8')
-        file_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
-        
-        # Add handler to logger (avoid duplicates)
         if not logger.handlers:
+            file_handler = logging.FileHandler(fullLogPath, encoding='utf-8')
+            file_handler.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
         
-        logger.info("Logging system initialized successfully")
+        logger.info("Logging initialized")
         return logger
-    except KeyError as e:
-        print(f"ERROR: Missing configuration key: {e}")
-        print("Please check your config.yaml file.")
-        sys.exit(1)
     except Exception as e:
-        print(f"ERROR: Failed to setup logging: {e}")
+        print(f"ERROR: Logging setup failed: {e}")
         sys.exit(1)
 
 
-# Main execution block
+# Main execution
 if __name__ == "__main__":
     try:
-        # Load configuration from script directory first
         load_config()
-        
-        # Select working folder for data storage
         working_folder = select_working_folder()
-        
-        # Setup logging (now in the working folder)
         logger = loggingSetup()
-        logger.info("="*60)
-        logger.info("Starting pywerMeter application")
-        logger.info(f"Script directory: {SCRIPT_DIR}")
-        logger.info(f"Working folder: {working_folder}")
         
-        # Display ASCII art
+        logger.info("="*60)
+        logger.info("pywerMeter started")
+        logger.info(f"Script: {SCRIPT_DIR}")
+        logger.info(f"Working: {working_folder}")
+        
         menuHelper.display_ascii_art()
         
-        # Define menu options (easily expandable - just add new entries here)
         menu_options = {
             '1': 'Run Power Measurement Tests',
-            '2': 'Add Power Calculations to Existing Excel File',
+            '2': 'Add Power Calculations to Excel',
             '3': 'Rerun Specific Test',
             'x': 'Exit'
         }
         
-        # Main menu loop
         while True:
             try:
                 choice = menuHelper.display_menu(menu_options)
                 
                 if choice == '1':
-                    # Run power measurement tests
-                    logger.info("User selected: Run Power Measurement Tests")
+                    logger.info("User: Run Tests")
                     run_power_tests()
                     
                 elif choice == '2':
-                    # Add power calculations to existing Excel file
-                    logger.info("User selected: Add Power Calculations")
+                    logger.info("User: Add Calculations")
                     print("\n=== Add Power Calculations ===")
-                    print("⚠️  IMPORTANT: If you have the Excel file open, please close it before choosing an option!\n")
+                    print("⚠️  Close Excel file before continuing!\n")
                     
-                    # Get filename from user using folder name
                     folder_name = os.path.basename(os.getcwd())
                     default_file = f"{folder_name}.xlsx"
-                    filename = input(f"Enter Excel filename (press Enter for '{default_file}'): ").strip()
+                    filename = input(f"Enter filename (Enter for '{default_file}'): ").strip()
                     if not filename:
                         filename = default_file
                     
                     if not os.path.exists(filename):
                         print(f"Error: File '{filename}' not found.")
-                        logger.error(f"Excel file not found: {filename}")
                         continue
                     
-                    # Ask which calculations to perform
-                    print("\nSelect calculation type:")
-                    print("[1] Add Averages Only")
+                    print("\n[1] Add Averages Only")
                     print("[2] Add Total Annual Power Only")
-                    print("[3] Add Both (Averages + Total Annual Power)")
+                    print("[3] Add Both")
                     print("[x] Cancel")
                     
-                    calc_choice = input("Select option: ").strip()
+                    calc_choice = input("Select: ").strip()
                     
-                    if calc_choice.lower() == 'x':
+                    if calc_choice == 'x':
                         print("Cancelled.")
-                        logger.info("User cancelled power calculations")
                         continue
                     
                     try:
@@ -676,71 +506,57 @@ if __name__ == "__main__":
                         
                         if calc_choice == '1':
                             print("\nAdding averages...")
-                            logger.info(f"Adding averages to {filename}")
                             if calc.add_averages():
-                                print("✓ Averages added successfully!")
+                                print("✓ Averages added!")
                             else:
-                                print("✗ Failed to add averages.")
-                                
+                                print("✗ Failed.")
                         elif calc_choice == '2':
                             print("\nAdding Total Annual Power...")
-                            logger.info(f"Adding Total Annual Power to {filename}")
                             if calc.totalAnnualPower():
-                                print("✓ Total Annual Power added successfully!")
+                                print("✓ Total Annual Power added!")
                             else:
-                                print("✗ Failed to add Total Annual Power.")
-                                
+                                print("✗ Failed.")
                         elif calc_choice == '3':
                             print("\nAdding averages...")
-                            logger.info(f"Adding averages and Total Annual Power to {filename}")
                             if calc.add_averages():
-                                print("✓ Averages added successfully!")
-                                # Reload for totalAnnualPower
+                                print("✓ Averages added!")
                                 calc2 = excelHelper.PowerCalc(filename, "Power Data")
                                 print("Adding Total Annual Power...")
                                 if calc2.totalAnnualPower():
-                                    print("✓ Total Annual Power added successfully!")
+                                    print("✓ Total Annual Power added!")
                                 else:
-                                    print("✗ Failed to add Total Annual Power.")
+                                    print("✗ Failed.")
                             else:
-                                print("✗ Failed to add averages.")
+                                print("✗ Failed.")
                         else:
                             print("Invalid option.")
-                            logger.warning(f"Invalid calculation option selected: {calc_choice}")
                     except Exception as e:
-                        print(f"ERROR: Failed to perform calculations: {e}")
-                        logger.error(f"Failed to perform Excel calculations: {e}", exc_info=True)
+                        print(f"ERROR: {e}")
+                        logger.error(f"Calculation error: {e}", exc_info=True)
                     
                     print()
                     
                 elif choice == '3':
-                    # Rerun specific test
-                    logger.info("User selected: Rerun Specific Test")
+                    logger.info("User: Rerun Test")
                     rerun_specific_test()
                     
                 elif choice == 'x':
-                    # Exit
-                    logger.info("User selected: Exit")
-                    print("\nExiting pywerMeter. Goodbye!")
-                    logger.info("Application shutdown normally")
+                    logger.info("User: Exit")
+                    print("\nExiting. Goodbye!")
+                    logger.info("Shutdown normally")
                     break
-                
-                else:
-                    # This shouldn't happen due to validation in display_menu, but just in case
-                    print("Invalid option.")
-                    logger.warning(f"Invalid menu selection: {choice}")
                     
             except KeyboardInterrupt:
-                print("\n\nMenu interrupted by user (Ctrl+C)")
-                logger.info("Menu loop interrupted by user")
+                print("\n\nInterrupted (Ctrl+C)")
+                logger.info("Menu interrupted")
                 continue
     
     except KeyboardInterrupt:
-        print("\n\nApplication interrupted by user (Ctrl+C). Exiting...")
-        logger.info("Application interrupted by user. Shutting down.")
+        print("\n\nApplication interrupted. Exiting...")
+        logger.info("Application interrupted")
         sys.exit(0)
     except Exception as e:
-        print(f"\nFATAL ERROR: Unexpected error in main execution: {e}")
-        logger.critical(f"Fatal error in main execution: {e}", exc_info=True)
+        print(f"\nFATAL ERROR: {e}")
+        logger.critical(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)
 

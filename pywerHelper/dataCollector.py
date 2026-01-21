@@ -5,10 +5,12 @@
 # Version: 1.0.0
 
 import time
+import logging
+from typing import Optional, Tuple, List
 from . import serialComm
 
 
-def initSerialDevice(logger):
+def initSerialDevice(logger: logging.Logger) -> Optional[serialComm.SerialDevice]:
     """
     Initialize serial device with comprehensive error handling.
     
@@ -38,7 +40,11 @@ def initSerialDevice(logger):
         return None
 
 
-def readSerialData(dev, logger, command=b'?MPOW'):
+def readSerialData(
+    dev: serialComm.SerialDevice, 
+    logger: logging.Logger, 
+    command: bytes = b'?MPOW'
+) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
     """
     Read data from serial device with proper error handling.
     
@@ -69,7 +75,12 @@ def readSerialData(dev, logger, command=b'?MPOW'):
         return None, None, None
 
 
-def serialFunction(logger, minutes=0.25, global_timer_start=None, test_header=None):
+def serialFunction(
+    logger: logging.Logger, 
+    minutes: float = 0.25, 
+    global_timer_start: Optional[float] = None, 
+    test_header: Optional[str] = None
+) -> List[str]:
     """
     Execute serial data collection with comprehensive error handling.
     
@@ -92,8 +103,8 @@ def serialFunction(logger, minutes=0.25, global_timer_start=None, test_header=No
     test_start_time = time.time()
     end_time = test_start_time + minutes * 60
     sample_count = 0
-    samples = []  # Store all samples for this test
-    recent_samples = []  # Keep track of last 15 samples for display
+    samples: List[str] = []  # Store all samples for this test
+    recent_samples: List[str] = []  # Keep track of last 15 samples for display
     
     print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
     logger.info(f"Starting data collection: {minutes:.2f} minutes for test '{test_header}'")
