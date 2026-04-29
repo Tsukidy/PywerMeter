@@ -5,10 +5,14 @@
 # Version: 1.0.0
 
 import time
+import sys
+import logging
+from typing import Optional, Tuple, List
 from . import serialComm
+from .timeUtils import format_time_minutes
 
 
-def initSerialDevice(logger):
+def initSerialDevice(logger: logging.Logger) -> Optional[serialComm.SerialDevice]:
     """
     Initialize serial device with comprehensive error handling.
     
@@ -20,7 +24,8 @@ def initSerialDevice(logger):
     """
     try:
         logger.info("Initializing serial device")
-        dev = serialComm.SerialDevice()
+        # Use builder pattern to load settings from config
+        dev = serialComm.SerialDeviceBuilder().from_config().build()
         logger.info("Serial device initialized successfully")
         return dev
     except serialComm.serial.SerialException as e:
@@ -38,19 +43,26 @@ def initSerialDevice(logger):
         return None
 
 
-def readSerialData(dev, logger, command=b'?MPOW'):
+def readSerialData(
+    dev: serialComm.SerialDevice, 
+    logger: logging.Logger, 
+    command: Optional[bytes] = None
+) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
     """
     Read data from serial device with proper error handling.
     
     Args:
         dev: SerialDevice object to query
         logger: Logger instance for logging operations
-        command: Byte string command to send to device
+        command: Byte string command to send to device (defaults to config or b'?MPOW')
         
     Returns:
         tuple: (unformattedData, retHexData, retAsciiData) or (None, None, None) on error
     """
     try:
+        # Use default command from query if not specified
+        if command is None:
+            command = b'?MPOW'
         logger.debug(f"Querying device with command: {command}")
         unformattedData, retHexData, retAsciiData = dev.query(command=command)
         logger.debug(f"Received data: {retAsciiData}")
@@ -69,7 +81,12 @@ def readSerialData(dev, logger, command=b'?MPOW'):
         return None, None, None
 
 
-def serialFunction(logger, minutes=0.25, global_timer_start=None, test_header=None):
+def serialFunction(
+    logger: logging.Logger, 
+    minutes: float = 0.25, 
+    global_timer_start: Optional[float] = None, 
+    test_header: Optional[str] = None
+) -> List[str]:
     """
     Execute serial data collection with comprehensive error handling.
     
@@ -92,17 +109,22 @@ def serialFunction(logger, minutes=0.25, global_timer_start=None, test_header=No
     test_start_time = time.time()
     end_time = test_start_time + minutes * 60
     sample_count = 0
-    samples = []  # Store all samples for this test
-    recent_samples = []  # Keep track of last 15 samples for display
+    samples: List[str] = []  # Store all samples for this test
+    recent_samples: List[str] = []  # Keep track of last 15 samples for display
     
-    print(f"Reading serial data for {minutes:.2f} minutes. Test: {test_header}")
+    print(f"Reading serial data for {format_time_minutes(minutes)}. Test: {test_header}")
     logger.info(f"Starting data collection: {minutes:.2f} minutes for test '{test_header}'")
+    
+    # Initialize display
+    lines_drawn = 0
 
     # Read serial data for specified duration
     try:
         while time.time() < end_time:
-            unformattedData, retHexData, retAsciiData = readSerialData(dev, logger, command=b'?MPOW')
-            if retAsciiData:
+            unformattedData, retHexData, retAsciiData = readSerialData(dev, logger)
+            
+            # Track if we got a new sample
+            if retAsciiData is not None:
                 # Store sample
                 samples.append(retAsciiData)
                 sample_count += 1
@@ -119,34 +141,30 @@ def serialFunction(logger, minutes=0.25, global_timer_start=None, test_header=No
             # Calculate global elapsed time if global timer was provided
             if global_timer_start:
                 global_elapsed = (current_time - global_timer_start) / 60
-                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Global Timer: {global_elapsed:.2f} min | Samples: {sample_count}"
+                status = f"Test Progress: {format_time_minutes(test_elapsed)}/{format_time_minutes(minutes)} | Remaining: {format_time_minutes(test_remaining)} | Global Timer: {format_time_minutes(global_elapsed)} | Samples: {sample_count}"
             else:
-                status = f"Test Progress: {test_elapsed:.2f}/{minutes:.2f} min | Remaining: {test_remaining:.2f} min | Samples: {sample_count}"
+                status = f"Test Progress: {format_time_minutes(test_elapsed)}/{format_time_minutes(minutes)} | Remaining: {format_time_minutes(test_remaining)} | Samples: {sample_count}"
             
-            # Use Windows-compatible method to update display
-            # Move cursor to beginning and clear with spaces
-            lines_to_clear = 16  # 1 status + 15 samples
-            
-            # Move cursor up if not first iteration
-            if sample_count > 1:
-                for _ in range(lines_to_clear):
-                    print(f"\033[F", end="")  # Move cursor up one line
+            # Move cursor up to redraw area (if we've already drawn before)
+            if lines_drawn > 0:
+                print(f"\033[{lines_drawn}F", end="")
             
             # Print status line
-            print(f"\r{status:<120}")  # Left-align and pad to 120 chars to clear previous text
+            print(f"{status:<120}")
             
-            # Print recent samples
-            for i in range(15):
-                if i < len(recent_samples):
-                    print(f"  [{i+1:2d}] {recent_samples[i]:<100}")  # Pad to clear previous text
-                else:
-                    print(f"{' ':<120}")  # Empty line padded with spaces
+            # Print recent samples (up to 15)
+            for i, sample in enumerate(recent_samples):
+                sample_num = sample_count - len(recent_samples) + i + 1
+                print(f"  [{sample_num:2d}] {sample:<100}")
+            
+            # Calculate how many lines we drew
+            lines_drawn = 1 + len(recent_samples)
             
             # Flush output
-            print(end="", flush=True)
+            sys.stdout.flush()
         
         # Move past the display area
-        print("\n")
+        print()
         print(f"Test complete: {sample_count} samples collected")
         logger.info(f"Test complete: {sample_count} samples collected for '{test_header}'")
         
