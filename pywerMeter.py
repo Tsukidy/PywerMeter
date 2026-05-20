@@ -129,7 +129,10 @@ def run_power_tests():
             test_numbers.append(test_num)
     
     test_numbers.sort()
-    
+
+    # Pause and inform test will begin now.
+    input("\nPress Enter to begin Testing...")
+
     # Initialize global timer
     global_start_time = time.time()
     elapsed_time = 0
@@ -381,7 +384,8 @@ def rerun_specific_test():
         logger.info(f"File does not exist: {filename}")
     
     print("⚠️  Close Excel file before continuing!")
-    input("\nPress Enter to continue...")
+    # Pause and inform test will begin now.
+    input("\nPress Enter to begin Testing...")
     
     # Initialize timer
     global_start_time = time.time()
